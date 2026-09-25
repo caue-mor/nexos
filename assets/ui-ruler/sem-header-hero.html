@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>régua — fixture sem header fixo e sem hero (prova de "não aplicável")</title>
+<link rel="icon" href="data:," />
+<!--
+  Prova exigida pelo nexos-verifier (achado HIGH em 7a35f4f8): a leitura do
+  modal entrava no mesmo agregado que decide se R7/R8 são "não aplicáveis",
+  e como medir_modal() nunca fala de R7/R8, a leitura do modal fazia os dois
+  parecerem "aplicáveis" mesmo sem NENHUM header fixo/hero em nenhuma
+  largura — regras_nao_aplicaveis saía vazio por engano.
+
+  Esta página tem modal (então R6 É aplicável e deve sair LIMPO de
+  regras_nao_aplicaveis) e propositalmente NÃO tem `position:fixed/sticky`
+  nem `[data-hero]/.hero/header.hero/section.hero` em lugar nenhum — R7 e R8
+  têm que aparecer os dois em regras_nao_aplicaveis, com motivo, e
+  RESULTADO continua PASSOU (ausência de alvo não é cegueira).
+-->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: sans-serif; color: #111; background: #fff; padding: 16px; }
+  button { min-height: 44px; min-width: 44px; padding: 8px 16px; font: inherit; }
+  .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(90vw, 400px); max-height: 80vh; overflow: auto; background: #fff; color: #111; padding: 16px; }
+  .dialog[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <h1>Página sem header fixo e sem hero</h1>
+  <p>Só existe para provar que R7 e R8 saem como "não aplicável", nunca como
+  "aprovado" nem como "cegueira" — e que R6 continua sendo medido de verdade
+  (o modal aqui funciona: foco entra, Tab preso, Esc fecha, fundo trava).</p>
+
+  <button type="button" data-modal-trigger>abrir modal</button>
+  <div id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-titulo" hidden>
+    <h2 id="dialog-titulo">Modal</h2>
+    <p>Conteúdo do modal.</p>
+    <button type="button" data-modal-close>fechar</button>
+  </div>
+
+<script>
+  const LOCK_SCROLL = true;
+  (function setupModal() {
+    const trigger = document.querySelector('[data-modal-trigger]');
+    const dialog = document.getElementById('dialog');
+    const closeBtn = dialog.querySelector('[data-modal-close]');
+    function focusables() {
+      return [...dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter((el) => el.offsetParent !== null);
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (f.length === 0) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    function open() {
+      dialog.hidden = false;
+      if (LOCK_SCROLL) document.body.style.overflow = 'hidden';
+      focusables()[0]?.focus();
+      document.addEventListener('keydown', onKeydown);
+    }
+    function close() {
+      dialog.hidden = true;
+      if (LOCK_SCROLL) document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKeydown);
+      trigger.focus();
+    }
+    trigger.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+  })();
+</script>
+</body>
+</html>

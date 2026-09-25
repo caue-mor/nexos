@@ -1,0 +1,15 @@
+src/
+tsconfig.json
+.gitignore
+# .env/*.db/__pycache__/*.pyc: MEDIDO (npm pack --dry-run --json) que este
+# .npmignore de RAIZ não filtra nada dentro de diretórios já listados inteiros
+# em package.json "files" (assets/, engine/) — "files" vence .npmignore de
+# raiz para o que está DENTRO de um diretório incluído por inteiro. As cópias
+# que realmente fecham o risco são as ANINHADAS: assets/.npmignore e
+# engine/.npmignore (mesmos 4 padrões, verificados efetivos pelo mesmo
+# npm pack --dry-run). Esta cópia de raiz fica como defesa complementar para
+# o que não está sob assets/engine/bin/dist.
+.env
+*.db
+__pycache__
+*.pyc

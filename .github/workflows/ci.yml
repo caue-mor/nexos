@@ -1,0 +1,158 @@
+name: CI
+
+# THREE SEPARATE PRODUCTS — do not merge them back into one job.
+#
+#   GENERIC CI            build-and-test, security-scan, verification-gates.
+#                          No `claude`, no login, no paid calls, no `~/.claude`,
+#                          no production secrets. Gates delivery.
+#   CLAUDE HOST CONFORMANCE  claude-host-conformance. Answers host-specific
+#                          questions (catalog schema/freshness, agent
+#                          delivery). NOT_APPLICABLE on every runner today —
+#                          no `claude` binary here — and does not gate
+#                          delivery until a runner that has one exists.
+#   CATALOG GENERATION    not in this file at all. `--generate` costs real
+#                          money (~US$0.68/probe, ~US$2.72/run) and must only
+#                          run by explicit operator action, never on push/PR.
+#
+# The steps under `Typecheck` / `Build TypeScript` / `Run tests` / the
+# `security-scan` job are not a fifth, hand-maintained gate list: they are the
+# exact `npm run <script>` invocation `resolveProjectQualityRecipe`
+# (src/lib/quality-recipe.ts) resolves for each REQUIRED category (typecheck,
+# test, build, secret-scan). `scripts/verify-quality-recipe-conformance.mts`
+# (run inside `verification-gates` below) asserts these steps stay in sync
+# with the resolver — if this file's `run:` text drifts from the recipe, that
+# gate goes RED, not this comment.
+
+on:
+  push:
+    # `main` sozinho fazia o CI nunca rodar: o trabalho vive em branch de
+    # feature e o job nem era acionado. Gate que nao dispara no branch em que
+    # se trabalha nao e gate — e o mesmo defeito que deixou a suite provada so
+    # localmente por meses.
+    branches: [main, "mvp/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test
+
+  security-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Scan for hardcoded secrets
+        run: npm run scan:secrets
+
+  # GENERIC CI — the measured host-independent gates (deterministic, no
+  # `claude`, no network, no mutation of tracked files — see the CATEGORY/
+  # GATE/MUTATES/HOST_DEP matrix that scoped this job) plus the quality-recipe
+  # conformance category. Runs once (single Node version, not the
+  # build-and-test matrix) — these gates don't vary by Node runtime, and
+  # tripling them buys nothing. The permission-gate attack matrix left with
+  # the authorization layer (nexos://decision/p1-0-remover-authorization-layer).
+  verification-gates:
+    name: Generic verification gates (no host, no mutation)
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Secret authority
+        run: npx tsx scripts/verify-secret-authority.mts
+
+      - name: Quality recipe conformance
+        run: npx tsx scripts/verify-quality-recipe-conformance.mts
+
+      - name: Secret pattern conformance
+        run: npx tsx scripts/verify-secret-pattern-conformance.mts
+
+      - name: ToolSearch capture schema regression
+        run: npx tsx scripts/verify-toolsearch-capture-parsing.mts
+
+      - name: CI gate conformance (this file wires up the right gates in the right job)
+        run: npx tsx scripts/verify-ci-gate-conformance.mts
+
+  # CLAUDE HOST CONFORMANCE — separate product, not part of generic CI.
+  # Answers questions ONLY answerable with the `claude` binary present: is
+  # `assets/policies/host-tool-catalog.json` schema-valid and fresh for THIS
+  # host. No hosted GitHub runner ships `claude` today, so this job is
+  # NOT_APPLICABLE on every run — `scripts/host-conformance.mts` is what
+  # makes that expected, non-blocking outcome NOT turn into a permanently
+  # red, ignored gate. It does NOT use `continue-on-error: true` — that
+  # swallows exit 1 (a real FAIL) exactly as readily as exit 3
+  # (NOT_APPLICABLE), which is the defect this replaces: a stale catalog on
+  # a runner that DOES have `claude` reported green. The wrapper
+  # distinguishes exit 0 / 1 / 3 itself
+  # and returns non-zero ONLY for a real FAIL — see its header for the full
+  # combination matrix. `scripts/verify-ci-gate-conformance.mts` asserts this
+  # job carries no `continue-on-error` that would defeat that distinction.
+  # It is deliberately excluded from `publish`'s `needs:` for the same reason
+  # it always was: a gate that can never pass on this infrastructure (no
+  # `claude` on hosted runners) must never block delivery — NOT_APPLICABLE is
+  # allowed to be non-blocking, a FAIL is not.
+  claude-host-conformance:
+    name: Claude host conformance (informational — requires `claude` on the runner)
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Host conformance (host tool conformance, PASS/FAIL/NOT_APPLICABLE)
+        run: npx tsx scripts/host-conformance.mts
+
+  # Publish itself is NOT in this file. It used to be — a `publish` job here
+  # duplicated .github/workflows/publish.yml, triggered on the SAME `push:
+  # tags: v*`, and would have raced it to `npm publish` on every tag (this
+  # one on a long-lived NODE_AUTH_TOKEN secret, publish.yml on OIDC trusted
+  # publishing). Two workflows publishing the same tag is a double-publish
+  # race, not redundancy, and the token path contradicts the OIDC-only
+  # decision documented at the top of publish.yml. Removed here, not fixed
+  # here — publish.yml is the single source of truth for `npm publish`.

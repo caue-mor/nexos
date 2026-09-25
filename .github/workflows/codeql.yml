@@ -1,0 +1,38 @@
+name: CodeQL
+
+# Advanced setup (workflow-based), not the GitHub Settings "default setup" —
+# this repo's dono has not touched repository Security settings yet. This
+# file is self-contained and needs no toggle in the GitHub UI to run.
+
+on:
+  push:
+    branches: [main, "mvp/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Catches drift between pushes: a query pack update, a new advisory.
+    - cron: "23 4 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: javascript-typescript
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: "/language:javascript-typescript"

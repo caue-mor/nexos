@@ -1,0 +1,117 @@
+{
+  "version": "3.0.0",
+  "name": "NexOS Skills",
+  "description": "Catalogo curado — 18 skills. Mantido junto com assets/skills/; tests/nexos-skill.test.ts confere que bate com o diretorio.",
+  "homepage": "https://github.com/caue-mor/nexos",
+  "generated": "auto",
+  "skills": [
+    {
+      "name": "context-budget",
+      "dir": "context-budget",
+      "path": "./context-budget",
+      "description": "Audits Claude Code context window consumption across skills, agents, commands, plugins, and MCP servers. Identifies bloat, redundant components, and produces prioritized token-savings recommendations. Use when the context window is filling up too fast and the skills, agents, commands, MCP servers, or plugins consuming it need to be identified."
+    },
+    {
+      "name": "create-plans",
+      "dir": "create-plans",
+      "path": "./create-plans",
+      "description": "Create hierarchical project plans optimized for solo agentic development. Use when planning projects, phases, or tasks that Claude will execute. Produces Claude-executable plans with verification criteria, not enterprise documentation. Handles briefs, roadmaps, phase plans, and context handoffs."
+    },
+    {
+      "name": "clean-code",
+      "dir": "development--clean-code",
+      "path": "./development--clean-code",
+      "description": "Pragmatic coding standards - concise, direct, no over-engineering, no unnecessary comments"
+    },
+    {
+      "name": "nextjs-best-practices",
+      "dir": "development--nextjs-best-practices",
+      "path": "./development--nextjs-best-practices",
+      "description": "Next.js App Router principles. Server Components, data fetching, routing patterns."
+    },
+    {
+      "name": "postgres-best-practices",
+      "dir": "development--postgres-best-practices",
+      "path": "./development--postgres-best-practices",
+      "description": "Postgres performance optimization and best practices from Supabase. Use this skill when writing, reviewing, or optimizing Postgres queries, schema designs, or database configurations."
+    },
+    {
+      "name": "react-patterns",
+      "dir": "development--react-patterns",
+      "path": "./development--react-patterns",
+      "description": "Modern React patterns and principles. Hooks, composition, performance, TypeScript best practices."
+    },
+    {
+      "name": "typescript-expert",
+      "dir": "development--typescript-expert",
+      "path": "./development--typescript-expert",
+      "description": "TypeScript and JavaScript expert with deep knowledge of type-level programming, performance optimization, monorepo management, migration strategies, and modern tooling. Use PROACTIVELY for any TypeScript/JavaScript issues including complex type gymnastics, build performance, debugging, and architectural decisions. If a specialized expert is a better fit, I will recommend switching and stop."
+    },
+    {
+      "name": "verification-before-completion",
+      "dir": "development--verification-before-completion",
+      "path": "./development--verification-before-completion",
+      "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - derives the check from the task's own acceptance, runs it, and requires the observed output before any success claim; evidence before assertions always. Do NOT use to invent a check that the task and the project never declared, and do NOT use it mid-implementation as a substitute for writing the task's own tests."
+    },
+    {
+      "name": "nexos",
+      "dir": "nexos",
+      "path": "./nexos",
+      "description": "Ativa o NexOS Mode nesta sessão — entrada única do NexOS. Use quando o usuário digitar /nexos, pedir para usar o NexOS neste projeto, iniciar um projeto do zero (\"criar projeto\", \"novo projeto\"), adotar um app existente (\"adotar este projeto\", \"usar NexOS neste repo\"), retomar trabalho (\"continuar de onde parei\", \"onde eu parei\", \"resume this project\") ou colocar o projeto em ordem (\"audita esse projeto e coloca em ordem\"). Diagnostica antes de agir, restaura o Project Brain, aplica só o autorizado e fica pronto para a ordem."
+    },
+    {
+      "name": "nexos-deliver",
+      "dir": "nexos-deliver",
+      "path": "./nexos-deliver",
+      "description": "Conduz qualquer trabalho de código que não seja trivial — implementar feature, corrigir bug, refatorar, migração de banco, integração com API, tela nova — do entendimento à entrega verificada. Use quando o pedido for \"implementa\", \"cria\", \"corrige\", \"adiciona\", \"faz o endpoint/tela/migration\", \"refatora\", ou qualquer mudança em mais de um arquivo. Planeja, abre checkpoint, constrói ou delega ao nexos-dev, manda o nexos-verifier conferir com os revisores especializados, devolve para correção o que falhar e fecha o estado. Não use para pergunta, leitura, typo ou mudança de uma linha."
+    },
+    {
+      "name": "nexos-handoff",
+      "dir": "nexos-handoff",
+      "path": "./nexos-handoff",
+      "description": "Monta o bloco HANDOFF que abre todo prompt de delegação e todo pedido de troca de dono. Use ao despachar um subagente, ao receber \"delegue para\", ao pedir handoff de um papel para outro (schema, segurança, release), ou quando um especialista precisa de trabalho que não é dele. Não use para conversa direta com o usuário nem para tarefa que o próprio agente executa inteira."
+    },
+    {
+      "name": "nexos-project",
+      "dir": "nexos-project",
+      "path": "./nexos-project",
+      "description": "DEPRECATED — substituída por /nexos (skill `nexos`). Mantida por um ciclo só como atalho de compatibilidade para \"criar projeto\", \"adotar este projeto\", \"usar NexOS neste repo\" e \"continuar de onde parei\"; não tem procedimento próprio."
+    },
+    {
+      "name": "nexos-time",
+      "dir": "nexos-time",
+      "path": "./nexos-time",
+      "description": "Roteia o pedido para o papel certo do time de desenvolvimento e DELEGA a ele. Use quando pedirem histórias de usuário, critérios de aceite, backlog ou requisitos (nexos-po); plano, tarefas, sprint, checklist, cronograma ou \"quebra em etapas\" (nexos-planner); testar tela, testar no navegador, QA, teste ponta a ponta ou regressão visual (nexos-qa); deploy, publicar, CI, pipeline, GitHub Actions, Railway, Vercel, variável de ambiente, cron ou migração em banco remoto (nexos-devops); layout, design, UX, hierarquia, estados ou visual de tela antes de codar (nexos-ux); arquitetura ou trade-off técnico (nexos-architect); pesquisa de mercado, concorrente ou viabilidade (nexos-analyst). Para implementar código use nexos-deliver."
+    },
+    {
+      "name": "commit-work",
+      "dir": "productivity--commit-work",
+      "path": "./productivity--commit-work",
+      "description": "Create high-quality git commits: review/stage intended changes, split into logical commits, and write clear commit messages (including Conventional Commits). Use when the user asks to commit, craft a commit message, stage changes, or split work into multiple commits."
+    },
+    {
+      "name": "requirements-clarity",
+      "dir": "productivity--requirements-clarity",
+      "path": "./productivity--requirements-clarity",
+      "description": "Clarify ambiguous requirements through focused dialogue before implementation. Use when requirements are unclear, features are complex (>2 days), or involve cross-team coordination. Ask two core questions - Why? (YAGNI check) and Simpler? (KISS check) - to ensure clarity before coding."
+    },
+    {
+      "name": "security-best-practices",
+      "dir": "security--security-best-practices",
+      "path": "./security--security-best-practices",
+      "description": "Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help. Trigger only for supported languages (python, javascript/typescript, go). Do not trigger for general code review, debugging, or non-security tasks."
+    },
+    {
+      "name": "skill-scout",
+      "dir": "skill-scout",
+      "path": "./skill-scout",
+      "description": "Search existing local, marketplace, GitHub, and web skill sources before creating a new skill. Use when the user wants to create, build, fork, or find a skill for a workflow."
+    },
+    {
+      "name": "yeet",
+      "dir": "workflow-automation--yeet",
+      "path": "./workflow-automation--yeet",
+      "description": "Use to finish a work branch after the change is verified: driven by the task's delivery_required flag - true means verify, commit and prove a clean tree over the task's paths; false means commit and STOP. Do NOT use to publish by default, and do NOT use it to push yourself - push is optional, belongs to the devops role, and is never what makes delivery true."
+    }
+  ]
+}

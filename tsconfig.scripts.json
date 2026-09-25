@@ -1,0 +1,22 @@
+{
+  // scripts/**/* passa a ser checado, com a MESMA rigidez de tsconfig.check.json
+  // (extends direto dele — strict + noUnusedParameters + noImplicitReturns +
+  // noFallthroughCasesInSwitch + noUnusedLocals). Nada foi afrouxado para caber
+  // no orcamento de tempo desta tarefa: o que nao coube fica em "exclude",
+  // nomeado, nao escondido atras de uma flag mais fraca.
+  //
+  // P0 (MVP Project Brain, bloco j) — os 8 arquivos antes excluidos aqui
+  // (capability-promote.mts, supply-verify.mts, capability-trust-recall.mts,
+  // capability-evolution.mts, discovery-slice.mts, capability-slice.mts,
+  // capability-recall.mts, relevance-slice.mts) e os 2 anteriores
+  // (isolated-acquisition-parity/proof.mts) foram REMOVIDOS junto com o
+  // subsistema `lib/capability`/`lib/presence` que consumiam — `git rm`, nao
+  // reescritos. Exclude list vazia agora: todo `scripts/**/*` restante
+  // typechecka limpo (exceto scripts/decision-publish.ts, um bug de
+  // `possibly undefined` pré-existente, sem relação com o P0, não corrigido
+  // aqui por escopo).
+  "extends": "./tsconfig.check.json",
+  "compilerOptions": {},
+  "include": ["scripts/**/*"],
+  "exclude": ["node_modules", "dist", "assets"]
+}

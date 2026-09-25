@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>régua — fixture inconclusivo (folha ilegível, sem outro defeito)</title>
+<link rel="icon" href="data:," />
+<!--
+  Única coisa fora do comum nesta página: uma folha de outra origem (porta
+  diferente de 127.0.0.1, sem cabeçalho CORS — tests/ui-ruler.test.ts sobe um
+  servidor http nu só para isto). O navegador aplica o CSS dela normalmente
+  (link tag não passa por CORS para RENDERIZAR), mas o CSSOM recusa
+  `sheet.cssRules` cross-origin sem `Access-Control-Allow-Origin` — é
+  exatamente a cegueira que R3/R4 precisam declarar, não fingir que não
+  existe. Prova exigida pelo nexos-verifier (achado HIGH em 64fcc68d):
+  RESULTADO=INCONCLUSIVO, com esta folha listada em `folhas_nao_lidas`.
+-->
+<link rel="stylesheet" href="http://127.0.0.1:8946/estilo-outra-origem.css" />
+</head>
+<body>
+  <p>Página sem nenhum outro defeito medível — só a folha ilegível acima.</p>
+</body>
+</html>

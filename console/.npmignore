@@ -1,0 +1,23 @@
+# .npmignore ANINHADO — a cópia da raiz não filtra aqui.
+#
+# MEDIDO e documentado no .npmignore de raiz deste repo: quando um diretório
+# entra INTEIRO em package.json "files", o "files" vence o .npmignore de raiz
+# para o conteúdo dele. Só a cópia aninhada é efetiva. Mesma razão pela qual
+# assets/ e engine/ tinham as suas.
+#
+# O que NÃO vai para o pacote publicado:
+
+# 1. Saída gerada. `nexos console` recria os dois a cada execução, e publicar
+#    a saída junto da fonte cria o pior caso possível: no dia em que o gerado
+#    divergir do gerador, o usuário abre a versão errada sem saber disso.
+console.html
+graph-view.html
+
+# 2. Testes. São 11 arquivos que provam as projeções durante o desenvolvimento
+#    e não têm consumidor em quem instala.
+*.test.mjs
+
+.env
+*.db
+__pycache__
+*.pyc

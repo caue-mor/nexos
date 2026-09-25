@@ -1,0 +1,2016 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXOS</title>
+<!-- Favicon inline (data:), sem arquivo novo: o painel é um HTML único
+     aberto por file://, e um .ico à parte só criaria um segundo arquivo
+     pra manter em sincronia com a paleta. Orbe simplificado — o mesmo
+     fósforo verde do canvas #orb, num quadrado do --void da direção B. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23060A08'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%237CFF9E'/%3E%3C/svg%3E">
+<style>/*__TAILWIND__*/</style>
+<style>
+  /* Direção B "JARVIS HUD", aprovada pelo dono em 23/09
+     (scratchpad/ux/direcao-b-jarvis-hud.html) — fósforo verde sobre painel
+     opaco, âmbar para atenção. Os mesmos seis papéis de cor do SDK anterior
+     (NexOS-Visual-SDK-v0.3.0) continuam existindo; só o valor mudou, e
+     design-tokens.test.mjs trava que os três arquivos concordem. */
+  :root{
+    --bg:#060A08; --surface:#0C1613; --grid:rgba(124,255,158,.06);
+    --primary:#7CFF9E; --primary-dim:#4C8F63; --text:#DCEBE1; --muted:#6E8577;
+    --warning:#FFB454; --danger:#FF5C6C; --info:#5FD8FF;
+    --line:rgba(124,255,158,.22);
+    /* Só a prosa (frase escrita por gente, ex.: o resumo de uma decisão)
+       usa --sans — código, dado e rótulo continuam no monoespaçado do
+       `body`. Mesmo recorte da maquete aprovada (linha 139 dela). */
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  /*   A TELA INTEIRA É O CONTÊINER, NÃO O CONTEÚDO
+   *
+   * Medido a 3440x1296: o conteúdo terminava em 633px e sobravam 663px de
+   * fundo vazio, com a barra de abas parada no meio da tela. `body` não era
+   * flex, então nada esticava para ocupar a altura.
+   *
+   * Coluna de altura mínima 100vh, `main` cresce (`flex:1`).
+   */
+  body{
+    background:var(--bg);color:var(--text);
+    font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,"Cascadia Mono",monospace;
+    /* Sem grade de fundo: a malha competia com o núcleo e sujava a tela. */
+    min-height:100vh;display:flex;flex-direction:column;
+  }
+  header{padding:14px 22px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;background:var(--surface);position:sticky;top:0;z-index:21}
+  h1{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--primary)}
+  /* Alvo de 24px também aqui: medido a 390px, o link do mapa tinha 22px de
+     altura. É o mesmo mínimo do WCAG 2.5.8 que o rótulo de seção já
+     respeita — regra de alvo vale para TODO clicável, não para o que foi
+     medido da última vez. */
+  /* Alvo de 44px (WCAG 2.5.8): `padding` sozinho não bastava porque o link
+     é `inline-block` só com `padding-block` — a altura da CAIXA seguia a
+     linha de texto (30px), não o padding. `inline-flex` com
+     `align-items:center` faz a caixa ter a altura que `min-height` pede e
+     centraliza o texto dentro dela, em vez de crescer só pra baixo. */
+  header a{display:inline-flex;align-items:center;min-height:44px;padding:0}
+  /*   BARRA DE ABAS NO RODAPÉ ESCONDIA O FIM DO CONTEÚDO
+   *
+   * Medido pelo QA: `nav{position:sticky;bottom:0}` flutuava sobre a cauda
+   * do painel enquanto o usuário ainda rolava — e vinha DEPOIS de `main` no
+   * DOM, então o teclado percorria a aba inteira antes de alcançar a
+   * navegação. As duas coisas se corrigem juntas: `nav` muda de lugar no
+   * HTML (antes de `main`, logo abaixo do `header`) e de `bottom` para
+   * `top`. Sem barra flutuando sobre o fim de nada — o conteúdo passa a
+   * fluir normalmente ABAIXO da navegação, nunca atrás dela.
+   */
+  /* `top` é o valor de primeira pintura, só até o script medir a altura
+     real do cabeçalho (ele quebra linha em telas estreitas quando o
+     caminho é longo) e corrigir — ver sincronizarTopoNav(). Um número fixo
+     aqui sozinho ficaria certo numa largura e sobrepondo o cabeçalho em
+     outra. */
+  nav{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--line);overflow-x:auto;
+      background:var(--surface);position:sticky;top:53px;z-index:20}
+  nav button{background:none;border:0;color:var(--muted);position:relative;
+             padding:10px 14px;cursor:pointer;font:inherit;white-space:nowrap;letter-spacing:.04em;min-height:44px}
+  nav button:hover{color:var(--text)}
+  /*   A ABA ATIVA NÃO PODE MUDAR A PRÓPRIA CAIXA
+   *
+   * A marca antiga trocava borda (2px) e compensava com margin-top:-2px —
+   * o resultado visual parecia certo, mas o box model da aba selecionada
+   * ficava ~2px mais alto que o das outras. Medido: a barra de abas lia
+   * DUAS linhas (`getBoundingClientRect().top` arredondado divergia entre
+   * a aba ativa e as demais) mesmo sendo, visualmente, uma linha só.
+   *
+   * Colchetes em `::before`/`::after`, absolutos: marcam sem mexer em
+   * borda, padding ou margem do botão — a caixa de toda aba mede o mesmo,
+   * ativa ou não.
+   */
+  nav button[aria-selected="true"]{color:var(--primary)}
+  nav button[aria-selected="true"]::before,
+  nav button[aria-selected="true"]::after{content:"";position:absolute;top:4px;bottom:4px;width:6px;border-color:var(--primary)}
+  nav button[aria-selected="true"]::before{left:3px;border-left:2px solid;border-top:2px solid;border-bottom:2px solid}
+  nav button[aria-selected="true"]::after{right:3px;border-right:2px solid;border-top:2px solid;border-bottom:2px solid}
+  /*   `flex-basis:0` GANHA DE `width`, E O ITEM SOME
+   *
+   * `flex:0 0 0` declarava `flex-basis:0` — que decide o tamanho no eixo
+   * principal de um item flex ANTES do `width`, exceto quando o basis é
+   * `auto`. Com o basis travado em 0 e grow/shrink também em 0, o item
+   * nunca cresce até os 28px do `width` — ele rendeirizava com 0px de
+   * largura, e a pista de rolagem nunca aparecia (achado do QA, LOW: some
+   * a 390/768, mas era em qualquer largura). `flex:none` (0 0 auto) deixa
+   * o `width` decidir, do jeito que a regra sempre pareceu fazer.
+   *
+   * Some do fluxo (`content:''`) e vira item flex "sticky" que se prende à
+   * borda direita ENQUANTO a própria `nav` rola — mesmo truque de "scroll
+   * shadow" sem JavaScript. */
+  nav::after{content:"";position:sticky;top:0;right:0;flex:none;width:28px;margin-left:-28px;
+             pointer-events:none;background:linear-gradient(90deg,transparent,var(--surface))}
+  /*   LARGURA DE LEITURA != LARGURA DA JANELA
+   *
+   * 1180px fixos deixavam 2/3 de um monitor de 3440px em branco, com tudo
+   * encostado à esquerda. Tabela de dados ganha com largura; prosa não. O
+   * teto sobe para 1720px e o bloco CENTRALIZA — em telas menores o `min()`
+   * devolve 100% e nada muda.
+   */
+  main{padding:20px clamp(1rem,2vw,1.5rem);width:100%;margin:0;flex:1;
+       display:flex;flex-direction:column}
+
+  /*   PAINEL NÃO OBEDECE LARGURA DE LEITURA
+   *
+   * O teto de 1720px existe para TEXTO e tabela: linha longa demais cansa.
+   * A Visão geral não é leitura — é instrumento, e instrumento usa o vidro
+   * inteiro. Medido a 3440px: o HUD ficava com 1676px (49% da tela) e 882px
+   * de margem morta de cada lado.
+   *
+   * `margin-inline: calc(50% - 50vw)` tira o bloco do contêiner centralizado
+   * sem precisar mudar a árvore. As outras abas continuam limitadas.
+   *
+   *   MAS "USAR O VIDRO INTEIRO" TEM QUE PARAR EM ALGUM LUGAR
+   *
+   * Sem teto, a 3440px o HUD vira 3396px de largura — e ninguém pediu pra
+   * ele cobrir tudo isso: rodada 3 mediu laterais de 268px (do layout de
+   * rodapé antigo, removido) e orbe gigante num vão vazio. `min(100vw,
+   * 1680px)` resolve as duas larguras com um valor só: abaixo de 1680px de
+   * janela ele devolve 100vw (nada muda do full-bleed medido e aprovado);
+   * a partir dali, trava em 1680px. `margin-inline:auto` só centraliza
+   * DE VERDADE quando a largura já cabe no container (abaixo de 1680px,
+   * onde a largura sempre extrapola o container, o navegador resolve as
+   * margens automáticas pra 0 — por isso a versão estreita continua
+   * dependendo do `calc(50% - 50vw)` de antes, e as duas regras convivem
+   * porque cada uma só "vence" na faixa onde faz sentido.
+   */
+  section[data-name="Visão geral"]{
+    width:100vw;margin-inline:calc(50% - 50vw);padding-inline:22px;
+    flex:1;display:flex;flex-direction:column;gap:0;
+  }
+  @media (min-width:1680px){
+    section[data-name="Visão geral"]{width:1680px;margin-inline:auto}
+    /*   O FUNDO PODE IR DE BORDA A BORDA; O CONTEÚDO, NÃO
+     *
+     * Medido pelo QA a 3440px: cabeçalho e faixa de seções continuavam
+     * `padding-inline` fixo (22px/14px) — o FUNDO delas já ia de ponta a
+     * ponta (nunca tiveram teto de largura), mas o conteúdo ficava colado
+     * na borda esquerda da TELA, enquanto a "Visão geral" logo abaixo
+     * está centralizada na coluna de 1680px. Resultado: o primeiro item
+     * da nav não alinhava com o começo do HUD.
+     *
+     * `padding-inline: calc((100vw - 1680px) / 2)` empurra só o CONTEÚDO
+     * pra a mesma coluna, sem tocar o `background` de cada barra — que
+     * continua preenchendo a largura toda do elemento.
+     */
+    header, nav{padding-inline:calc((100vw - 1680px) / 2)}
+  }
+  /*   ESPAÇO VAZIO NÃO É ESPAÇO USADO
+   *
+   * Dar `flex:1` ao HUD fazia ele esticar até 1027px com 120px de conteúdo —
+   * deserto com o orbe flutuando no meio. O painel superior fica DENSO, com
+   * altura própria, e o espaço que sobra vai para "Precisa de você", que é o
+   * que o dono precisa ler primeiro.
+   */
+  /*   O NÚCLEO É O CENTRO DA VISÃO GERAL, NÃO UM ITEM DA PÁGINA
+   *
+   * A direção B mantém cabeçalho e faixa de seções em toda largura — não
+   * existe mais o modo "sem moldura" que só valia >=1500px. O que continua
+   * valendo aqui embaixo é o HUD tomar a altura que sobra dentro da aba
+   * (sem cabeçalho/faixa) e o orbe crescer com ela, dentro do teto acima.
+   */
+  section[data-name="Visão geral"] > .hud{flex:1;min-height:0}
+  section[data-name="Visão geral"] > .mission[hidden]{display:none}
+  /*   NUMA COLUNA ESTREITA, NÚMERO E FRASE NÃO CABEM LADO A LADO
+   *
+   * Com os alertas dentro da lateral de 300px, `flex-direction:row` quebrava
+   * a frase em três linhas e deixava o número colado e minúsculo. Empilhado,
+   * o número mantém a grandeza e a frase lê como legenda dele.
+   */
+  .alerta{display:flex;flex-direction:column;align-items:flex-start;gap:0;
+          padding:7px 8px;margin-block:2px;margin-inline:-8px}
+  .alerta .qtd{font-size:26px;font-weight:600;line-height:1.05}
+  .alerta > span{font-size:12px;color:var(--muted);line-height:1.45}
+  .alerta.req .qtd{color:var(--warning)}
+  .alerta.blk .qtd{color:var(--danger)}
+  .alerta.ir:hover > span{color:var(--text)}
+  .mission h2{font-size:12px}
+  section[hidden]{display:none}
+  h2{font-size:12px;color:var(--primary-dim);text-transform:uppercase;letter-spacing:.12em;margin:22px 0 10px}
+  h2:first-child{margin-top:0}
+  /* 5 colunas fixas: 6 e 7 cards quebravam a fileira e deixavam um órfão sozinho */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 14px;min-height:74px;display:flex;flex-direction:column;justify-content:center}
+  .card b{display:block;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.15;color:var(--text)}
+  .card span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.09em;margin-top:4px}
+  table{width:100%;border-collapse:collapse;margin-top:4px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:400;font-size:12px;text-transform:uppercase;letter-spacing:.09em}
+  .mono{font-size:12px;word-break:break-all}
+  .muted{color:var(--muted)}
+  .ok{color:var(--primary)}.drift{color:var(--warning)}.blocked{color:var(--danger)}.unknown{color:var(--info)}
+  .na{opacity:.55;font-style:italic}
+  /*   A TRILHA SAÍA DA JANELA, NÃO SÓ O PREENCHIMENTO
+   *
+   * Medido a 390px: a trilha (a caixa `.bar`, não a `i` de dentro) tinha o
+   * próprio `right` além da largura da janela. Causa: a largura vinha de
+   * `style="width:38%"` na `<td>` que a contém — e a 390px a tabela vira
+   * `display:block` (regra abaixo), onde a célula de uma tabela em modo
+   * bloco não tem mais o algoritmo de coluna do `table` pra segurar esse
+   * percentual contra a largura VISÍVEL da linha. `overflow:hidden` na
+   * trilha escondia o sintoma (o preenchimento cortado) sem esconder a
+   * causa: a caixa em si media mais que a janela.
+   *
+   * Fixo em pixel na trilha em vez de percentual na célula: não depende de
+   * qual algoritmo de tabela está ativo. */
+  .bar{width:min(160px,100%);height:5px;background:rgba(124,255,158,.1);border-radius:2px;overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;background:var(--danger)}
+  .note{background:var(--surface);border-left:2px solid var(--warning);padding:10px 14px;border-radius:0 4px 4px 0;margin:10px 0;line-height:1.6}
+  .tag{display:inline-block;padding:1px 7px;border-radius:3px;font-size:12px;letter-spacing:.06em;border:1px solid currentColor}
+  a{color:var(--info)}
+  /* Tabela longa rola dentro de si, em vez de esticar a página em 6000px */
+  .scroll{max-height:460px;overflow-y:auto;border:1px solid var(--line);border-radius:4px}
+  .scroll table{margin-top:0}
+  .scroll th{position:sticky;top:0;background:var(--bg)}
+
+  /* Linha de tabela que abre detalhe: o cursor precisa dizer isso ANTES do
+     clique. 390 linhas pareciam clicáveis e não eram — foi a primeira coisa
+     que o dono notou usando. */
+  /*   CLICÁVEL PRECISA PARECER CLICÁVEL, E SER ALCANÇÁVEL
+   *
+   * `.ir` marca o que navega para outra aba. Cursor e sublinhado pontilhado
+   * avisam ANTES do clique; `:focus-visible` com anel de 2px porque o anel
+   * padrão do navegador some contra #060A08.
+   */
+  /*   A GRANDEZA PRECISA SER VISÍVEL SEM LEITURA
+   *
+   * Rótulo miúdo em cima, número grande embaixo, barra de proporção quando o
+   * valor é fração. É o que separa painel de lista: dá para bater o olho e
+   * saber o estado sem ler uma palavra.
+   */
+  .metrica{display:flex;flex-direction:column;gap:1px;padding:6px 0}
+  .metrica .lbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .metrica .num{font-size:30px;line-height:1.05;color:var(--text);font-weight:600;letter-spacing:-.02em}
+  .metrica .num i{font-size:15px;font-style:normal;color:var(--muted);font-weight:400}
+  .metrica .nota{font-size:12px;color:var(--muted)}
+  .metrica .barra{display:block;height:3px;background:var(--line);margin-top:6px;border-radius:2px;overflow:hidden}
+  .metrica .barra i{display:block;height:100%;background:var(--primary);opacity:.85}
+  .metrica.ir:hover .num{color:var(--primary)}
+  .metrica.ir:hover .barra i{opacity:1}
+  @media (min-width:1500px){ .metrica .num{font-size:38px} }
+  .ir{cursor:pointer;transition:color .15s,background .15s}
+  /* Alvo de toque mínimo 24x24 (WCAG 2.2): os alertas mediam 23,2px de altura. */
+  /* Uma regra só para `.alerta`: a duplicada abaixo reimpunha
+     `align-items:center` por ordem e recentralizava o número. */
+  .alerta{min-height:26px;border-radius:3px}
+  h2.rotulo-hud{margin:0 0 10px}
+  .ir:hover{color:var(--primary)}
+  /*   ALVO PEQUENO DEMAIS PARA ACERTAR
+   *
+   * Medido: 308x16px. O mínimo do WCAG 2.2 (2.5.8, nível AA) é 24x24 — e
+   * 16px de altura num rótulo de 10px é difícil de acertar com o mouse e
+   * pior ainda com o dedo. O Lighthouse dá 100 e não pega isto: ele não
+   * audita tamanho de alvo em desktop.
+   *
+   * O padding cresce a área clicável e a margem negativa devolve o espaço,
+   * então nada se move na tela — o alvo fica maior sem o layout mudar um
+   * pixel. */
+  h2.rotulo-hud.ir{
+    text-decoration:underline dotted var(--primary-dim);text-underline-offset:3px;
+    padding-block:4px;margin-block:-4px 6px;
+  }
+  h2.rotulo-hud.ir:hover{text-decoration-color:var(--primary)}
+  .kv.ir:hover{background:rgba(124,255,158,.06);margin-inline:-6px;padding-inline:6px;border-radius:3px}
+  .mission .ir:hover{background:rgba(124,255,158,.06)}
+  .ir:focus-visible,tr[data-open]:focus-visible,nav button:focus-visible,a:focus-visible,
+  .paginacao button:focus-visible,
+  section:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+  section:focus-visible{outline-offset:-2px}
+  tr[data-open]{cursor:pointer}
+  /* Sem isto o foco do teclado some no tema escuro: o anel padrão do
+     navegador tem contraste baixo contra #060A08. `.paginacao button`
+     ficou de fora quando a paginação foi criada (achado do verificador)
+     — mesmo problema, mesmo remédio dos outros clicáveis. */
+  tr[data-open]:focus-visible,nav button:focus-visible,a:focus-visible,
+  .paginacao button:focus-visible{
+    outline:2px solid var(--primary);outline-offset:-2px}
+  tr[data-open]:hover{background:rgba(124,255,158,.06)}
+  tr[data-open].aberta{background:rgba(124,255,158,.09)}
+  .detalhe{padding:10px 14px;background:var(--surface);border-left:2px solid var(--primary)}
+  .detalhe dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+  .detalhe dt{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .detalhe dd{margin:0;word-break:break-word}
+
+  /* RESPONSIVIDADE — o painel foi construído numa largura só e nunca medido
+     em outra. Medido: nav transbordava abaixo de 1440px e o HUD de 3 colunas
+     fixas (260px|1fr|260px) era inviável em telefone. */
+  
+  
+  
+
+  /* HUD — estrutura de Control Surface do Visual SDK v0.3.0 (doc 01):
+     laterais de estado, centro com o orbe como INSTRUMENTO de estado (não
+     decoração) e registro de missão embaixo. O que não temos medido aparece
+     como lacuna declarada, nunca como número simulado. */
+  /* Sem `gap:1px` sobre fundo de linha: aquilo desenhava as divisórias que
+     cercavam o painel. As colunas se separam por espaço, não por traço. */
+  .hud{display:grid;grid-template-columns:260px 1fr 260px;gap:0 28px;align-items:stretch}
+  .hud > div{background:var(--bg);padding:14px 16px}
+  .hud .rotulo-hud{font-size:12px;color:var(--primary-dim);text-transform:uppercase;letter-spacing:.12em;margin:0 0 10px}
+  .hud .rotulo-hud:not(:first-child){margin-top:18px}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px}
+  /*   VALOR SEM PONTO DE QUEBRA VAZA A CAIXA, NÃO É EMBELEZAMENTO
+   *
+   * Item flex tem `min-width:auto` por padrão — recusa encolher abaixo da
+   * largura do próprio conteúdo, então um `ramo` comprido (ex.:
+   * "feat/algum-nome-de-branch-longo") empurrava a caixa para fora da
+   * janela em vez de quebrar linha. `min-width:0` libera o encolhimento;
+   * `overflow-wrap:break-word` quebra em "/" e "-" quando existem, e só
+   * corta no meio de uma palavra sem NENHUM ponto de quebra — nunca
+   * `break-all`, que cortaria toda palavra normal também. */
+  .kv b{color:var(--text);font-variant-numeric:tabular-nums;overflow-wrap:break-word;min-width:0;text-align:right}
+  .kv .lbl{color:var(--muted);flex-shrink:0}
+  /*   O CENTRO NÃO PODE ESTICAR ATÉ A ALTURA DA COLUNA MAIS ALTA
+   *
+   * `.hud{align-items:stretch}` (herdado, é o padrão do grid) faz TODA
+   * coluna da linha esticar até a altura da mais alta — e "Visão geral"
+   * tem colunas laterais com vários `.bloco`, facilmente mais altas que
+   * o núcleo. Esticado, `justify-content:center` centraliza o orbe no
+   * MEIO dessa caixa esticada — que pode ir muito além da primeira tela.
+   * Medido a 1440px: orbe e status caindo perto de y=740-900, fora do
+   * que cabe sem rolar.
+   *
+   * `align-self:start` tira só esta coluna do estica-e-centraliza: ela
+   * fica do tamanho do PRÓPRIO conteúdo, ancorada no topo da linha.
+   */
+  .hud-center{display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;align-self:start}
+  #orb{width:100%;max-width:420px;height:240px;display:block}
+  .orb-state{font-size:12px;letter-spacing:.3em;color:var(--primary-dim);text-transform:uppercase}
+  .orb-name{font-size:26px;letter-spacing:.14em;color:var(--primary);margin:2px 0 4px}
+  .orb-sub{font-size:12px;color:var(--muted);text-align:center;max-width:340px}
+  .mission{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .mission div{padding:2px 0;font-size:12px}
+  .mission .req{color:var(--warning)}
+  .mission .blk{color:var(--danger)}
+  .gap{color:var(--muted);font-style:italic;font-size:12px;padding:2px 0}
+
+  /*   OCUPAR A TELA != ESTICAR O CONTEÚDO
+   *
+   * Medido a 3440px logo depois do full-bleed: as colunas ficaram
+   * `260px | 2872px | 260px` — duas tiras de dados coladas nas bordas e um
+   * deserto no meio. Preencher a largura não é usá-la — resolvido abaixo
+   * limitando a própria "Visão geral" a um teto de largura, em vez de
+   * deixar o HUD crescer sem fim (ver seção da aba mais abaixo).
+   *
+   * A primeira tentativa distribuiu os ITENS em grid e embaralhou tudo:
+   * "Instalação" apareceu com `ramo`, "Não medimos ainda" com `commit`.
+   * Por isso cada seção virou `bloco` no HTML — o grid move BLOCOS, e
+   * rótulo e dados viajam juntos.
+   */
+  /*   CADA COLUNA EMPILHA SOZINHA, NÃO DISTRIBUÍDA PELA ALTURA DO PAINEL
+   *
+   * `align-content:space-between` espalhava os blocos ao longo da altura
+   * da LINHA do grid — e como cada coluna lateral pode ter altura
+   * diferente da outra (números de itens diferentes), os blocos de uma
+   * coluna não alinhavam com os da outra: medido a 1440/1920, "Ferramentas"
+   * (2º bloco da direita) caía bem mais embaixo que "Instalação" (2º
+   * bloco da esquerda). `flex-direction:column` empilha cada coluna a
+   * partir do topo, do jeito da maquete — sem depender da altura da
+   * coluna vizinha.
+   */
+  .col{display:flex;flex-direction:column;gap:22px}
+  /*   MOLDURA DE CANTOS, NÃO CAIXA FECHADA
+   *
+   * A maquete aprovada usa colchete nos quatro cantos (dois `::before`/
+   * `::after` do elemento, dois `<span class="bl"/"br">` extra no HTML).
+   * Aqui os cantos de cima saem de `::before`/`::after` — únicos pseudo-
+   * elementos que um nó tem — e uma borda fina de 1px fecha o retângulo:
+   * o efeito de "painel de instrumento" sem precisar tocar `bloco()` e
+   * arriscar os testes que já travam a forma do que ela devolve.
+   */
+  .bloco{
+    min-width:0;position:relative;background:var(--surface);
+    border:1px solid var(--line);padding:14px 16px 12px;
+  }
+  .bloco::before,.bloco::after{
+    content:"";position:absolute;top:-1px;width:11px;height:11px;border-color:var(--primary-dim);
+  }
+  .bloco::before{left:-1px;border-left:2px solid;border-top:2px solid}
+  .bloco::after{right:-1px;border-right:2px solid;border-top:2px solid}
+  /*   CANAL ÂMBAR: O QUE PRECISA DE VOCÊ NÃO PODE PARECER MAIS UM BLOCO
+   *
+   * `:has()` acha o bloco "Precisa de você" pelo que ele CONTÉM (linhas
+   * `.alerta`, únicas nesse bloco) em vez de um parâmetro novo em
+   * `bloco()` — zero risco de derrubar `navegacao-contract.test.mjs`, que
+   * trava a assinatura de `bloco()` e o que ela devolve.
+   */
+  .bloco:has(> .alerta){border-color:var(--warning)}
+  .bloco:has(> .alerta)::before,.bloco:has(> .alerta)::after{border-color:var(--warning)}
+  .bloco:has(> .alerta) > h2{color:var(--warning)}
+  /*   1440 NÃO É "TELA GRANDE", É A LARGURA MAIS COMUM DE DESKTOP
+   *
+   * Abaixo de 1180 (colapso de 2 colunas) o HUD ficava preso nos 260px da
+   * regra base — mesma largura de coluna de um notebook pequeno. Medido a
+   * 1440x900 na maquete aprovada: laterais ~436px, centro ~300px fixo.
+   * `1fr` nas laterais entrega essa largura sem outro número mágico — elas
+   * absorvem o que sobra da tela.
+   *
+   * Sem teto superior aqui: quem impede o HUD de esticar sem fim numa tela
+   * 3440px não é uma segunda faixa de breakpoint pro HUD, é a PRÓPRIA aba
+   * "Visão geral" ter um teto de largura (ver a regra dela, mais abaixo) —
+   * um teto só, no lugar que de fato limita, em vez de um por tamanho de
+   * tela. Removida a faixa de layout de rodapé/coluna lateral que existia
+   * só >=1500px (grid-areas, nav vertical, header no rodapé): contradizia
+   * a direção B aprovada, que é cabeçalho + faixa de seções em TODA
+   * largura — medido pelo QA a 3440px: laterais de 268px, orbe gigante,
+   * muito vazio, header empurrado pro rodapé da coluna.
+   */
+  @media (min-width:1180px){
+    .hud{grid-template-columns:1fr 320px 1fr;gap:0 32px}
+  }
+
+  /*   O QUE ROLA É O CONTEÚDO, NÃO A PÁGINA
+   *
+   * Medido nas dez abas: o conteúdo vai de 211px ("Pesquisas") a 1938px
+   * ("Trabalho feito"), e a página inteira rolava junto — os cartões de
+   * resumo sumiam do topo assim que se procurava algo na tabela, que é
+   * exatamente quando eles importam.
+   *
+   * A faixa de cartões gruda no topo da área rolável e o resto desliza por
+   * baixo. Sem JavaScript: `position:sticky` com fundo OPACO, porque sem o
+   * fundo o texto da tabela passa por trás do cartão e fica ilegível.
+   */
+  section > .cards:first-of-type{
+    position:sticky;top:0;z-index:10;
+    background:var(--bg);padding:2px 0 14px;
+    margin-bottom:2px;box-shadow:0 10px 18px -12px var(--bg);
+  }
+
+  /*   CARTÃO É COMPONENTE, NÃO CAIXA COM BORDA
+   *
+   * Eram retângulos com traço em volta, todos iguais e sem estado. Agora têm
+   * superfície própria, realce na borda de cima que muda com a severidade, e
+   * resposta ao ponteiro — o mesmo vocabulário do resto da tela.
+   */
+  .cards > div{
+    position:relative;background:var(--surface);border:1px solid var(--line);
+    border-radius:6px;padding:14px 16px;overflow:hidden;
+    transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+  }
+  .cards > div::before{
+    content:'';position:absolute;inset:0 0 auto 0;height:2px;
+    background:var(--primary);opacity:.3;transition:opacity .18s ease;
+  }
+  .cards > div:hover{
+    border-color:var(--primary-dim);transform:translateY(-1px);
+    box-shadow:0 6px 20px -12px var(--primary);
+  }
+  .cards > div:hover::before{opacity:.9}
+  .cards > div.blocked::before{background:var(--danger);opacity:.7}
+  .cards > div.drift::before,.cards > div.unknown::before{background:var(--warning);opacity:.6}
+
+  /* Tabela longa rola no próprio quadro, com o cabeçalho fixo dentro dele. */
+  .scroll{max-height:min(58vh,760px);overflow:auto;border:1px solid var(--line);border-radius:6px}
+  .scroll table{border:0}
+  .scroll thead th{position:sticky;top:0;background:var(--surface);z-index:2}
+  .paginacao{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-top:8px;font-size:12px;
+  }
+  .paginacao button{
+    background:none;color:var(--primary);border:1px solid var(--line);border-radius:4px;
+    min-height:44px;padding:0 16px;cursor:pointer;font:inherit;letter-spacing:.03em;
+  }
+  /* Bloco empilhado pra prosa que não cabe em coluna de tabela (ver
+     "Perguntas que a análise levanta"): teto de altura próprio, rola
+     dentro de si — mesmo papel do `.scroll` de tabela, tamanho pedido
+     à parte porque aqui não tem cabeçalho fixo pra compensar. */
+  .lista-perguntas{max-height:600px;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:6px}
+  .item-pergunta{border-top:1px dashed var(--line);padding-top:10px}
+  .item-pergunta:first-child{border-top:0;padding-top:0}
+  .item-pergunta p{margin:4px 0 0;font-family:var(--sans)}
+  .item-pergunta .muted{margin-top:3px}
+  .paginacao button:hover:not(:disabled){border-color:var(--primary-dim)}
+  .paginacao button:disabled{color:var(--muted);cursor:default;opacity:.5}
+
+  /*   MOVIMENTO EXPLICA MUDANÇA — E SÓ ISSO
+   *
+   * Transição existe para o olho acompanhar o que mudou de lugar, nunca para
+   * enfeitar. Duração curta (150-220ms) e só em `opacity`/`transform`, que o
+   * navegador compõe sem recalcular layout.
+   *
+   * `prefers-reduced-motion` desliga tudo: para quem marcou essa preferência,
+   * animação é sintoma, não recurso.
+   */
+  @keyframes entrar{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  section[role=tabpanel]:not([hidden]){animation:entrar .22s ease-out}
+  .bloco{animation:entrar .26s ease-out both}
+  .col > .bloco:nth-child(2){animation-delay:.04s}
+  .col > .bloco:nth-child(3){animation-delay:.08s}
+  .col > .bloco:nth-child(4){animation-delay:.12s}
+  tr[id]:not([hidden]) .detalhe{animation:entrar .18s ease-out}
+
+  /* A linha ativa acende em vez de só mudar de fundo. */
+  tr[data-open].aberta{box-shadow:inset 2px 0 0 var(--primary)}
+  .metrica .barra i{transition:width .5s cubic-bezier(.22,.61,.36,1)}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+                         transition-duration:.001ms!important;scroll-behavior:auto!important}
+  }
+
+  /*   O TETO DE LARGURA VAI NA TABELA, NUNCA NA CÉLULA
+   *
+   * Auditadas as dez abas a 3440px: cinco tinham coluna desproporcional, a
+   * pior com 111px contra 2644px. A primeira correção pôs `max-width:74ch`
+   * no `td` — e o navegador reportou `max-width: 623px` computado numa
+   * coluna RENDERIZADA com 2248px:
+   *
+   *     max-width EM CÉLULA NÃO EXISTE PARA `table-layout:auto`
+   *
+   * O algoritmo de tabela distribui o espaço pela largura do CONTEÚDO e
+   * ignora o teto da célula. Quem aceita teto é a tabela, que é um bloco.
+   * `td` guarda só a quebra de palavra, que é o que ele de fato controla.
+   *
+   * 120ch é medida da própria fonte, não pixel arbitrário: é onde uma
+   * tabela de três colunas ainda tem proporção antes de a coluna de texto
+   * comer o resto da tela.
+   */
+  table{max-width:120ch}
+  /*   ROLAGEM PRÓPRIA VALE EM QUALQUER LARGURA, NÃO SÓ NO CELULAR
+   *
+   * Media a 768px, aba Saúde: a rolagem dentro da própria tabela só
+   * ligava (`display:block;overflow-x:auto`) abaixo de 720px — 768 ficava
+   * de fora, e o documento inteiro passava a rolar de lado (823px contra
+   * janela de 768px). O mecanismo vale em qualquer largura: se a tabela
+   * já coubesse, `overflow-x:auto` não faz nada; sobrando conteúdo, ela
+   * rola dentro de si em vez de empurrar a página — em 390px ou 3440px.
+   */
+  table{display:block;overflow-x:auto}
+  /*   `anywhere` ENTRA NA LARGURA MÍNIMA; `break-word` NÃO
+   *
+   * Medido na mesma tabela, só trocando o valor: com `anywhere` a coluna
+   * "evidência" ficava com 78px e o caminho quebrava letra a letra; com
+   * `break-word`, 286px. Os dois quebram palavra longa — mas `anywhere`
+   * também informa ao algoritmo de tabela que a largura mínima daquela
+   * coluna é UM CARACTERE, e o algoritmo acredita. */
+  td{overflow-wrap:break-word;white-space:normal}
+  td.mono,td:has(.tag),th{white-space:nowrap}
+  /* Selo + frase é prosa: `td:has(.tag)` travava a linha e a coluna "sugestões"
+   * da aba Saúde chegou a 970px (documento 1388px numa janela de 1200). */
+  td.prosa{white-space:normal}
+  .detalhe td{max-width:none}
+
+  /*   ESPAÇO QUE SOBRA VIRA INFORMAÇÃO, NÃO COLUNA ESTICADA
+   *
+   * Com o teto acima, uma tabela de três colunas para de esticar — e
+   * deixaria 2400px de fundo vazio numa tela ultrawide, que é a mesma
+   * queixa por outro lado. Então os grupos (cada `h2` com o que vem até o
+   * próximo) se acomodam LADO A LADO: o espaço livre é preenchido com mais
+   * conteúdo, não com uma linha de texto que ninguém consegue ler.
+   *
+   * `minmax(min(100%,620px),1fr)` é o que impede a coluna de nascer menor
+   * que a tela em telas estreitas — sem o `min()`, 620px vira rolagem
+   * horizontal no celular.
+   */
+  section[role=tabpanel]{flex:1;align-self:stretch}
+  /*   NEM TODO FILHO DO PAINEL É UMA COLUNA
+   *
+   * `display:grid` no painel inteiro transforma CADA filho direto em item
+   * de grid — inclusive `.cards`, a faixa de resumo, que tem layout
+   * próprio. Medido na aba Saúde a 3440px: a faixa virou uma coluna de
+   * 764x2122px, esticada na vertical para acompanhar a altura da linha, e
+   * os cartões viraram quatro caixas altas e estreitas.
+   *
+   * `.cards` ocupa a linha inteira, e `align-items:start` impede que um
+   * bloco curto seja esticado até a altura do bloco mais alto da linha.
+   *
+   * 620px era estreito demais: dava 4 colunas de 763px numa tela de 3440,
+   * e uma tabela de três colunas nesse espaço volta a espremer a coluna do
+   * meio. 900px dá 3 colunas de ~1130px. */
+  section[role=tabpanel]:has(> .grupo){
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,900px),1fr));
+    gap:2px 30px;align-content:safe center;align-items:start;
+  }
+  /* Qualquer filho direto que NÃO seja um grupo — a faixa de cartões, uma
+     nota de contexto, um aviso — ocupa a linha inteira. Só `.grupo` é
+     coluna. A primeira versão nomeava só `.cards` e a nota de "lido em"
+     da aba nova virou uma coluna vazia de 900px ao lado dela. */
+  section[role=tabpanel] > :not(.grupo){grid-column:1/-1}
+  /* Visível para leitor de tela, nunca para o olho. `clip-path` em vez de
+     `display:none`, que o tiraria da árvore de acessibilidade junto. */
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;
+      clip-path:inset(50%);white-space:nowrap}
+  .grupo{min-width:0}
+  .grupo.largo{grid-column:1/-1}
+  /*   RAZÃO ENTRE COLUNAS NÃO É A MEDIDA — LARGURA DE LEITURA É
+   *
+   * Em "Aprendizados" as quatro primeiras colunas travam em 78px porque é
+   * o mínimo do conteúdo delas; só a de texto absorve o resto. Medido com
+   * quatro tetos, a razão mal se mexe (16,3x → 10,4x) enquanto a coluna de
+   * texto cai de 1275px para 709px. Perseguir a razão seria perseguir um
+   * número que o conteúdo curto fixa sozinho.
+   *
+   * 140ch é onde a coluna de leitura chega a 871px sem espremer a tabela
+   * de seis colunas de "Sessões", que divide o mesmo teto. */
+  .grupo.largo table{max-width:140ch}
+
+  /*   PÁGINA CURTA NÃO É PÁGINA VAZIA
+   *
+   * "Pesquisas" ocupava 17% da altura e "Versão instalada" 53%: o conteúdo
+   * terminava e sobrava fundo, como se a tela tivesse falhado ao carregar.
+   * Quando o conteúdo é curto ele centraliza na vertical — a página fica
+   * intencional em vez de interrompida.
+   */
+  section[role=tabpanel]:not(:has(> .grupo)){
+    display:flex;flex-direction:column;gap:14px;justify-content:safe center;
+  }
+  /*   ESTADO VAZIO DE PÁGINA NÃO É ESTADO VAZIO DE CÉLULA
+   *
+   * `.na` nasceu para a página sem conteúdo, onde 120px de altura mínima
+   * impedem a tela de parecer que falhou ao carregar. Mas a MESMA classe é
+   * usada na célula de tabela sem valor — e ali os 120px inflavam CADA
+   * linha: medido na aba Saúde, linhas de 133px e 219px para conteúdo de
+   * duas linhas de texto, com um travessão solto boiando no meio.
+   *
+   * Dentro de célula o vazio é só um travessão: a linha tem a altura do
+   * que ela contém. */
+  .na{
+    display:flex;align-items:center;justify-content:center;
+    min-height:120px;border:1px dashed var(--line);border-radius:6px;
+    color:var(--muted);font-size:13px;
+  }
+  td .na,td.na{min-height:0;border:0;padding:0;display:block;text-align:center}
+
+/*   MEDIA QUERY ATIVA != MEDIA QUERY APLICADA
+ *
+ * Estes blocos ficavam ANTES das regras base e perdiam por ORDEM: media
+ * query não acrescenta especificidade, então `.hud` declarado depois
+ * sobrescrevia `.hud` dentro de `@media`. Medido no navegador a 390px:
+ * `matchMedia('(max-width: 720px)').matches` era `true`, a regra `1fr`
+ * existia na folha, e o aplicado era `260px 172px 260px` — três colunas
+ * cortadas por `overflow-x:hidden` numa caixa de 358px.
+ *
+ * Quatro seletores estruturais eram anulados assim: .hud, .hud-center,
+ * .cards, .note. A responsividade inteira era código morto, e foi reportada
+ * como entregue porque só tinha sido olhada a 1470px, onde nenhuma delas
+ * dispara.
+ *
+ * Ficam no FIM do bloco de estilo. Qualquer regra base nova entra ACIMA
+ * daqui.
+ */
+@media (max-width: 1180px){
+    .hud{grid-template-columns:1fr 1fr}            /* 3 → 2 colunas */
+    .hud-center{grid-column:1 / -1;order:-1;min-height:260px}
+    main{padding:16px}
+  }
+@media (max-width: 720px){
+    .hud{grid-template-columns:1fr}                /* 2 → 1 coluna */
+    .cards{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+    .card b{font-size:19px}
+    header{padding:12px 16px;gap:8px}
+    h1{font-size:13px}
+    main{padding:14px 16px}
+    /* Coluna com piso de largura: só no celular, onde uma coluna
+       espremida vira letra por letra em vez de palavra por palavra. */
+    td,th{white-space:normal;min-width:110px}
+  }
+@media (max-width: 480px){
+    .cards{grid-template-columns:1fr 1fr}
+    nav button{padding:9px 10px;font-size:12px}
+    .note{padding:9px 11px}
+    /*   ALVO DE 44PX SÓ CUSTA NA LARGURA QUE PRECISA DELE
+     *
+     * Medido a 390px: `h2.rotulo-hud.ir` (27px), `.kv.ir` (25px) e
+     * `tr[data-open]` (35px) ficavam abaixo do mínimo de toque — o mesmo
+     * WCAG 2.5.8 que a nav já respeitava. Alvo pequeno passa no mouse de
+     * 768/1440 (o brief não cobra alvo lá), então o ajuste fica só aqui:
+     * dar altura em telas largas custaria espaço vertical à toa numa
+     * tabela densa que ninguém toca com o dedo.
+     */
+    h2.rotulo-hud.ir{padding-block:13px;margin-block:-13px 3px}
+    .kv.ir{padding-block:13px;margin-block:-8px}
+    tr[data-open] td{padding-block:13px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>NEXOS</h1>
+  <span class="muted mono" id="meta"></span>
+  <span class="muted">·</span>
+  <a href="graph-view.html">Mapa do código →</a>
+</header>
+<nav id="tabs" role="tablist"></nav>
+<main id="panes"></main>
+<script>
+const D = /*__PAYLOAD__*/null;
+const h = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const card = (label, value, cls = '') => `<div class="card"><b class="${cls}">${h(value)}</b><span>${h(label)}</span></div>`;
+const cards = (pairs) => `<div class="cards">${pairs.map(([l, v, c]) => card(l, v, c)).join('')}</div>`;
+/**
+ * Linha de tabela que ABRE detalhe.
+ *
+ * O painel tinha 390 linhas de tabela e ZERO clicáveis — clicar em um
+ * aprendizado, uma tarefa ou uma ferramenta não fazia nada. O dado inteiro já
+ * estava na tela e não respondia, o que fazia a tela parecer quebrada em vez
+ * de somente-leitura. `data-open` marca o que é clicável, e o CSS avisa com
+ * cursor e hover ANTES do clique.
+ *
+ * O detalhe abre inline (linha extra logo abaixo), não em modal: o contexto
+ * da lista continua visível, que é o que importa quando se está comparando
+ * itens de uma fila.
+ */
+const linhaAbrivel = (celulas, detalhe) => {
+  const id = `d${linhaAbrivel.n = (linhaAbrivel.n || 0) + 1}`;
+  /**
+   *   CLICÁVEL != ALCANÇÁVEL
+   *
+   * Medido no navegador: 286 linhas respondiam ao mouse e NENHUMA ao
+   * teclado — `tabindex` ausente tira a linha da ordem de foco, então para
+   * quem não usa mouse o painel inteiro era somente-leitura. É a queixa
+   * "clico e nada" do dono, permanente.
+   *
+   * `aria-expanded` no lugar de `role="button"`: a linha continua sendo
+   * linha de tabela para o leitor de tela (trocar o papel quebraria a
+   * navegação por células), e o estado aberto/fechado é anunciado.
+   */
+  /**
+   *   ARIA VÁLIDO DEPENDE DO PAPEL DO PAI
+   *
+   * `aria-expanded` numa `<tr>` é atributo PROIBIDO: só vale em linha de
+   * `treegrid`, e declarar `treegrid` sem implementar navegação por setas
+   * seria outra promessa que o DOM não cumpre. Medido pelo Lighthouse, que
+   * reprovou 297 linhas de uma vez.
+   *
+   * O estado vai no `aria-label`, que é válido em qualquer elemento e é
+   * atualizado no toggle — o leitor de tela continua sabendo se abriu.
+   */
+  return `<tr data-open="${id}" tabindex="0" aria-controls="${id}" aria-label="ver detalhe">${celulas}</tr>`
+    + `<tr id="${id}" hidden><td colspan="9"><div class="detalhe">${detalhe}</div></td></tr>`;
+};
+
+/** Pares rótulo/valor do detalhe. Valor ausente vira "—", nunca vazio mudo. */
+const dl = (pares) => `<dl>${pares.filter(([, v]) => v !== undefined)
+  .map(([k, v]) => `<dt>${h(k)}</dt><dd>${v === null || v === '' ? '—' : h(String(v))}</dd>`).join('')}</dl>`;
+
+/**
+ *   NÚMERO NA TELA É PERGUNTA, NÃO RESPOSTA
+ *
+ * Todo rótulo e todo número do HUD que tem uma aba correspondente vira
+ * navegação: quem lê "626 ferramentas" quer VER as 626. Sem isso a tela é
+ * um cartaz — mostra o dado e não deixa chegar nele.
+ *
+ * `data-goto` é o par de `data-open` (que abre detalhe inline): um navega
+ * entre abas, o outro expande no lugar. Os dois com delegação, teclado e
+ * foco visível.
+ */
+/**
+ *   O NOME ACESSÍVEL PRECISA CONTER O TEXTO VISÍVEL
+ *
+ * `aria-label="abrir Saúde"` num elemento que mostra "Projeto" reprova
+ * `label-content-name-mismatch`: quem usa comando de voz fala o que VÊ, e o
+ * nome acessível tem que começar por isso. Medido: 15 elementos de uma vez.
+ */
+/**
+ *   ATRIBUTO DUPLICADO É SILENCIOSO
+ *
+ * A primeira versão colava `class="ir"` ao lado de um `class=` que o
+ * elemento já tinha. O navegador fica com o PRIMEIRO e descarta o segundo
+ * sem erro nenhum: a navegação funcionava, o estilo de clicável não
+ * aparecia, e nada no console avisava. `extra` entra na MESMA lista.
+ */
+/**
+ *   NOME ACESSÍVEL MONTADO À MÃO ERRA O ESPAÇO QUE O DOM NÃO TEM
+ *
+ * A correção anterior montava `aria-label="estado CANONICAL, abrir Saúde"`.
+ * Reprovou de novo, em 11 elementos: o texto VISÍVEL são dois `span`
+ * colados no HTML, que o leitor concatena como `estadoCANONICAL` — e
+ * `estadoCANONICAL` não está contido em `estado CANONICAL`. O espaço
+ * existia na string e não no DOM.
+ *
+ * Um `aria-label` escrito à mão sempre vai poder divergir do que a tela
+ * mostra. Então não há mais `aria-label`: o destino entra como texto
+ * oculto DENTRO do elemento, e o nome acessível passa a ser o próprio
+ * texto visível mais o sufixo. Não tem como divergir do que não é
+ * duplicado.
+ */
+const irPara = (aba, extra = '') =>
+  `class="ir${extra ? ' ' + extra : ''}" data-goto="${h(aba)}" tabindex="0" role="link"`;
+/** Sufixo lido, nunca visto: diz para onde o elemento leva. */
+const sr = (aba) => `<span class="sr">, abrir ${h(aba)}</span>`;
+/**
+ *   RÓTULO E DADOS PRECISAM SER UM ELEMENTO SÓ
+ *
+ * Enquanto título e pares eram IRMÃOS soltos na coluna, qualquer tentativa
+ * de distribuí-los em grid quebrava a associação: o grid preenche célula a
+ * célula e "Instalação" acabou exibindo `ramo`, "Não medimos ainda"
+ * exibindo `commit`. Dado sob rótulo errado é pior que layout feio — é
+ * afirmação falsa na tela.
+ *
+ * `bloco()` fecha cada seção num contêiner. Aí o grid distribui BLOCOS, e o
+ * que está dentro nunca se separa do seu título.
+ */
+const bloco = (titulo, aba, itens) => `<div class="bloco">${secao(titulo, aba)}${itens}</div>`;
+
+/** Rótulo do HUD é seção de primeiro nível do painel: `h2`, não `h4` — h1 -> h4 é salto de três níveis. */
+const secao = (titulo, aba) =>
+  aba
+    ? `<h2 ${irPara(aba, 'rotulo-hud')}>${h(titulo)}${sr(aba)}</h2>`
+    : `<h2 class="rotulo-hud">${h(titulo)}</h2>`;
+const kv = (l, v, aba) =>
+  aba
+    ? `<div ${irPara(aba, 'kv')}><span class="lbl">${h(l)}</span><b>${h(v)}</b>${sr(aba)}</div>`
+    : `<div class="kv"><span class="lbl">${h(l)}</span><b>${h(v)}</b></div>`;
+
+/**
+ *   RÓTULO E NÚMERO NO MESMO PESO NÃO É PAINEL, É LISTA
+ *
+ * O que o olho procura num instrumento é a GRANDEZA: o rótulo diz o que é, o
+ * número diz quanto. Lado a lado no mesmo tamanho, os dois competem e nenhum
+ * ganha — o painel vira texto corrido e é preciso LER para saber o estado.
+ *
+ * `metrica` inverte: rótulo pequeno em cima, número grande embaixo. E quando
+ * o valor é uma fração ("2/4", "117/117"), desenha a proporção — barra cheia
+ * é bom, barra pela metade se vê de longe sem ler número nenhum.
+ */
+const metrica = (l, v, aba, nota) => {
+  const txt = String(v);
+  const frac = txt.match(/^(\d+)\s*\/\s*(\d+)$/);
+  const pct = frac ? Math.round((Number(frac[1]) / Math.max(1, Number(frac[2]))) * 100) : null;
+  const corpo =
+    `<span class="lbl">${h(l)}</span>` +
+    `<span class="num">${h(frac ? frac[1] : txt)}${frac ? `<i>/${h(frac[2])}</i>` : ''}</span>` +
+    (nota ? `<span class="nota">${h(nota)}</span>` : '') +
+    (pct === null
+      ? ''
+      : `<span class="barra"><i style="width:${pct}%"></i></span>`);
+  return aba
+    ? `<div ${irPara(aba, 'metrica')}>${corpo}${sr(aba)}</div>`
+    : `<div class="metrica">${corpo}</div>`;
+};
+
+/**
+ *   UM TÍTULO E O QUE ELE EXPLICA SÃO UMA COISA SÓ
+ *
+ * As abas internas são uma sequência plana de `h2` e tabela irmãos. Plana,
+ * elas só empilham: em 3440px sobra metade da tela vazia à direita e cada
+ * tabela estica para tapar o buraco.
+ *
+ * Aqui cada `h2` e o que vem até o próximo `h2` entram num `.grupo`, que é
+ * o que o grid acomoda lado a lado. Sem esse passo o grid separaria título
+ * de tabela em colunas diferentes — o defeito que `bloco()` já tinha
+ * resolvido na visão geral, pelo mesmo motivo.
+ *
+ * Tabela com mais de quatro colunas leva `largo` e fica em linha inteira:
+ * espremer uma tabela larga em meia tela só troca o problema por rolagem
+ * horizontal.
+ */
+const agrupar = (sec) => {
+  if (!sec.querySelector(':scope > h2')) return;
+  let g = null;
+  for (const el of [...sec.children]) {
+    if (el.tagName === 'H2') {
+      g = document.createElement('div');
+      g.className = 'grupo';
+      sec.insertBefore(g, el);
+    }
+    if (!g) continue;
+    g.appendChild(el);
+    if (el.querySelectorAll('thead th').length > 4) g.classList.add('largo');
+  }
+};
+
+/**
+ *   NOME INTERNO NÃO É NOME DE TELA
+ *
+ * O Store guarda `SUCCEEDED`, `HUMAN_REQUIRED`, `VERIFYING` — e continua
+ * guardando, é o vocabulário canônico dele. A tela é lida por quem quer
+ * saber em que pé está o trabalho, não por quem conhece a máquina de
+ * estados.
+ *
+ * Antes havia DOIS dicionários parciais, ambos com os mesmos três estados,
+ * escritos inline em lugares diferentes. Os outros cinco passavam crus por
+ * falta de entrada: dicionário incompleto não avisa que está incompleto.
+ *
+ * `_TAREFA` no nome não é enfeite. A primeira versão chamou isto de
+ * `ESTADO` e o guard de idempotência do patch — `'const ESTADO = {' not in
+ * s` — casou com o `ESTADO` LOCAL da Visão geral, que é outra coisa (o
+ * estado do trabalho resolvido pelo boot). O dicionário nunca foi inserido,
+ * e o gate de execução do build barrou com `ESTADO is not defined`:
+ *
+ *     GUARD DE IDEMPOTÊNCIA QUE CASA COM OUTRA COISA NÃO É GUARD
+ *
+ * O nome cru acompanha em cinza onde cabe: quem cruzar a tela com a saída
+ * de `nexos checkpoint` precisa dos dois.
+ */
+/**
+ * Estados de PROJETO — identidade da capsule e saúde do doctor. Família
+ * diferente da de tarefa, e o dicionário é separado de propósito: `BLOCKED`
+ * existe nas duas e quer dizer coisas diferentes (aqui, identidade em
+ * conflito; lá, tarefa que não pode seguir). Um dicionário só traduziria
+ * um dos dois errado, em silêncio.
+ */
+const ESTADO_PROJETO = {
+  CANONICAL: 'identidade confirmada',
+  NOT_ADOPTED: 'ainda não adotado',
+  NO_PROJECT: 'sem projeto nesta pasta',
+  BLOCKED: 'identidade em conflito',
+  HEALTHY: 'em ordem',
+  DRIFTED: 'fora de sincronia',
+  PARTIAL: 'instalação incompleta',
+  LEGACY: 'em formato antigo',
+  CONFLICT: 'em conflito',
+  CORRUPT: 'arquivo danificado',
+  UNSUPPORTED: 'versão não suportada',
+  DEGRADED: 'funcionando com limitação',
+};
+
+const ESTADO_TAREFA = {
+  PENDING: 'na fila',
+  READY: 'pronta para começar',
+  RUNNING: 'em andamento',
+  VERIFYING: 'em conferência',
+  SUCCEEDED: 'concluída',
+  FAILED: 'falhou',
+  HUMAN_REQUIRED: 'esperando você',
+  BLOCKED: 'travada',
+  SUPERSEDED: 'substituída',
+};
+
+const table = (cols, rows, scroll = rows.length > 25) => rows.length
+  ? `<div class="${scroll ? 'scroll' : ''}"><table><thead><tr>${cols.map((c) => `<th>${h(c)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`
+  : '<div class="na">nenhum</div>';
+
+/**
+ *   20 LINHAS DE CADA VEZ, NÃO A TABELA INTEIRA DE UMA TACADA
+ *
+ * "Estrutura do código" media 5035px de altura a 390px com uma tabela só de
+ * 40 linhas. `table()` já corta tabela de mais de 25 linhas num `.scroll`
+ * que rola DENTRO da própria caixa — mas a altura ocupada na PÁGINA
+ * continua a mesma, porque as 40 linhas seguem no DOM. Paginar de verdade
+ * tira do DOM o que não está na página atual.
+ *
+ * Estado num registro global por id, não em closure: a aba inteira é
+ * recriada a cada troca (`sec.innerHTML = panes[name]()`) — uma closure
+ * morreria junto, e a delegação de clique (`document.addEventListener`)
+ * precisa achar o estado de novo em qualquer clique futuro, mesmo depois
+ * de repintar a aba.
+ */
+window.__paginas = window.__paginas || {};
+let __paginaSeq = 0;
+const renderPagina = (id) => {
+  const p = window.__paginas[id];
+  const totalPaginas = Math.max(1, Math.ceil(p.linhas.length / p.porPagina));
+  const inicio = p.atual * p.porPagina;
+  const fatia = p.linhas.slice(inicio, inicio + p.porPagina);
+  /* `scroll:true` sempre: paginar tira linha do DOM (bom pra contagem e
+     teclado), mas 20 linhas ainda podem passar da tela — o teto de
+     altura do `.scroll` é quem garante isso, página por página. */
+  return `<div id="${id}">${table(p.cols, fatia, true)}`
+    + `<div class="paginacao">`
+    + `<button data-pagina="${id}" data-dir="-1" ${p.atual === 0 ? 'disabled' : ''}>‹ anterior</button>`
+    + `<span class="muted">página ${p.atual + 1} de ${totalPaginas} — ${p.linhas.length} ao todo</span>`
+    + `<button data-pagina="${id}" data-dir="1" ${p.atual >= totalPaginas - 1 ? 'disabled' : ''}>próxima ›</button>`
+    + `</div></div>`;
+};
+/** Só pagina o que passa do tamanho da página — abaixo disso é `table()` puro, sem controle à toa. */
+const paginar = (cols, linhas, porPagina = 20) => {
+  if (linhas.length <= porPagina) return table(cols, linhas);
+  const id = `pag${++__paginaSeq}`;
+  window.__paginas[id] = { cols, linhas, porPagina, atual: 0 };
+  return renderPagina(id);
+};
+
+document.getElementById('meta').textContent = `${D.root} · coletado ${D.collectedAt}`;
+
+/**
+ *   NAV NÃO PODE ADIVINHAR A ALTURA DO CABEÇALHO
+ *
+ * `nav` gruda no topo com `position:sticky;top:<altura do header>` — mas o
+ * cabeçalho quebra linha (`flex-wrap:wrap`) quando o caminho do projeto é
+ * longo numa tela estreita, e um número fixo no CSS acerta uma largura e
+ * sobrepõe o cabeçalho em outra. `getBoundingClientRect().height` lê a
+ * altura REAL depois do layout, então a barra sempre encosta embaixo do
+ * cabeçalho, tenha ele uma linha ou duas. Roda no load e em todo resize —
+ * é a mesma condição que muda o número de linhas do cabeçalho.
+ */
+const sincronizarTopoNav = () => {
+  const cabecalho = document.querySelector('header');
+  const nav = document.getElementById('tabs');
+  if (!cabecalho || !nav) return;
+  nav.style.top = `${Math.round(cabecalho.getBoundingClientRect().height)}px`;
+};
+sincronizarTopoNav();
+window.addEventListener('resize', sincronizarTopoNav);
+
+const SEV = ['ok', 'muted', 'drift', 'blocked', 'unknown'];
+
+const cardsLegado = (M) => '<h2>Quem propos (contagem por arquivo, inclui histórico)</h2>'
+  + table(['de onde veio', 'quantos'], Object.entries(M.byProposer).map(([p, n]) => `<tr><td class="muted">${h(p)}</td><td class="mono">${n}</td></tr>`));
+
+const panes = {
+  'Visão geral': () => {
+    const B = D.boot ?? {}, C = D.checkpoints, M = D.memory, K = D.capabilities, R = D.release, S = D.sessions;
+
+    // ESTADO DO TRABALHO — é o que o orbe representa. Vem do boot resolvido,
+    // não de heurística de tela.
+    const ESTADO = {
+      CONTINUE: { txt: 'em andamento', sub: 'há trabalho em curso e ele pode seguir', cor: 'var(--primary)' },
+      COMPLETE: { txt: 'concluído', sub: 'o ciclo atual fechou', cor: 'var(--primary)' },
+      HUMAN_DECISION_REQUIRED: { txt: 'esperando você', sub: 'o sistema parou porque a decisão é humana', cor: 'var(--warning)' },
+      BLOCKED: { txt: 'bloqueado', sub: 'algo impede o trabalho de seguir', cor: 'var(--danger)' },
+    }[B.workState] ?? { txt: 'não sabido', sub: 'o estado do trabalho não pôde ser lido', cor: 'var(--info)' };
+
+    window.__orb = { cor: ESTADO.cor, estado: B.workState ?? 'UNKNOWN' };
+    const pendentes = [];
+    if ((M.canonical?.stats?.total ?? 0) > 0)
+      pendentes.push(['req', `${M.canonical.stats.total} aprendizados esperam sua decisão — o mais antigo há ${M.canonical.stats.oldestDays} dias`, 'Aprendizados']);
+    // Pendência vem do HEAD da linhagem, nunca do histórico: record superado
+    // com estado BLOCKED descreve o passado daquela cadeia, não o agora.
+    if ((C.byStateHead?.BLOCKED ?? 0) > 0)
+      pendentes.push(['blk', `${C.byStateHead.BLOCKED} trabalho bloqueado agora`, 'Trabalho feito']);
+    if ((C.byStateHead?.HUMAN_REQUIRED ?? 0) > 0)
+      pendentes.push(['req', `${C.byStateHead.HUMAN_REQUIRED} trabalho aguardando decisão sua`, 'Trabalho feito']);
+    if (!R.healthy)
+      pendentes.push(['req', `instalação desalinhada: ${R.stats.outOfSync} de ${R.stats.total} partes fora de dia`, 'Versão instalada']);
+    if ((S.stats?.sharedCheckouts ?? 0) > 0)
+      pendentes.push(['req', `${S.stats.sharedCheckouts} pasta com mais de uma sessão aberta ao mesmo tempo`, 'Sessões']);
+    if (D.research?.stats?.invisibleByLineage > 0)
+      pendentes.push(['req', `${D.research.stats.invisibleByLineage} pesquisas gravadas que o sistema não consegue abrir`, 'Pesquisas']);
+    if (!pendentes.length) pendentes.push(['', 'nada exige decisão humana agora']);
+
+    return `<div class="hud">
+      <div class="col">
+        ${bloco('Precisa de você', null, pendentes.map(([c, t, aba]) => {
+          const m = String(t).match(/^(\d+)\s+(.*)$/);
+          const corpo = m ? `<b class="qtd">${h(m[1])}</b> <span>${h(m[2])}</span>` : `<span>${h(t)}</span>`;
+          return aba
+            ? `<div class="${c} ir alerta" data-goto="${h(aba)}" tabindex="0" role="link" aria-label="${h(t)}, abrir ${h(aba)}">${corpo}</div>`
+            : `<div class="${c} alerta">${corpo}</div>`;
+        }).join(''))}
+        ${bloco('Projeto', 'Saúde',
+            kv('estado', B.state ? (ESTADO_PROJETO[B.state] ?? B.state) : '—', 'Saúde')
+          + kv('ramo', B.git?.branch ?? '—')
+          + kv('commit', (B.git?.headShort ?? '—'))
+          + metrica('arquivos alterados', B.git?.dirtyCount ?? '—'))}
+        ${bloco('Instalação', 'Versão instalada',
+            metrica('partes em dia', `${R.stats.inSync}/${R.stats.total}`, 'Versão instalada')
+          + kv('mais atrasada', R.stats.worstDistance + ' commits', 'Versão instalada'))}
+        ${(() => {
+          /**
+           *   A PRIMEIRA TELA PRECISA DIZER O QUE ACONTECEU
+           *
+           * Teste real: um experimento foi reprovado por gate, revertido e
+           * registrado como decisão — e a visão geral não mencionava nada
+           * disso. Mostrava estado, ramo, commit e instalação: o que o
+           * projeto É, nunca o que aconteceu com ele.
+           *
+           * As últimas decisões respondem isso com o dado que já existe.
+           * Cada uma leva à aba onde o corpo está.
+           */
+          const U = D.decisions?.ultimas ?? [];
+          if (!U.length) return '';
+          const quando = (n) => (n === 0 ? 'hoje' : n === 1 ? 'ontem' : `há ${n} dias`);
+          /*
+           * O título de uma decisão no Store é um slug
+           * (`b-availability-abstention-v1-failed`) — identificador, não
+           * frase. Quem lê a primeira tela quer saber O QUE foi decidido,
+           * e isso está no corpo. Então a linha principal é a primeira
+           * frase do resumo, e o slug fica embaixo em cinza, para quem for
+           * cruzar com `nexos decision`. Mesmo padrão dos estados
+           * traduzidos: o legível na frente, o interno ao lado.
+           */
+          const primeiraFrase = (txt) => {
+            if (!txt) return null;
+            const f = String(txt).split(/(?<=[.!?])\s/)[0].trim();
+            return f.length > 150 ? f.slice(0, 147) + '…' : f;
+          };
+          return bloco('Decidido por último', 'Decisões', U.slice(0, 4).map((u) => {
+            const frase = primeiraFrase(u.resumo);
+            return `
+            <div class="kv" style="display:block;padding:6px 0">
+              <div style="font-size:12px;line-height:1.4;font-family:var(--sans)">${h(frase ?? u.titulo.replace(/-/g, ' '))}${u.revogada ? ' <span class="tag blocked">revogada</span>' : ''}</div>
+              <div class="muted mono" style="margin-top:2px">${h(u.titulo)} · ${h(quando(u.diasAtras))}</div>
+            </div>`;
+          }).join(''));
+        })()}
+        ${bloco('Não medimos ainda', null,
+            '<div class="gap">contexto consumido</div>'
+          + '<div class="gap">latência de voz</div>'
+          + '<div class="gap">artefatos gerados</div>')}
+      </div>
+
+      <div class="hud-center">
+        <canvas id="orb"></canvas>
+        <div class="orb-state">${h(ESTADO.txt)}</div>
+        <div class="orb-name">NEXOS</div>
+        <div class="orb-sub">${h(ESTADO.sub)}</div>
+      </div>
+
+      <div class="col">
+        ${bloco('Trabalho', 'Trabalho feito',
+            metrica('tarefas registradas', C.stats.total, 'Trabalho feito')
+          + metrica('encerradas', C.stats.terminals, 'Trabalho feito')
+          + metrica('com prova localizável', `${C.reach.reachable}/${C.reach.terminals}`, 'Provas'))}
+        ${bloco('Ferramentas', 'Ferramentas',
+            /*
+             *   O MESMO DEFEITO MORAVA EM DOIS LUGARES
+             *
+             * A aba Ferramentas foi corrigida — "645 disponíveis" com 483
+             * desligadas — e este bloco da primeira tela continuou
+             * anunciando o catálogo inteiro. Corrigir onde o defeito foi
+             * MEDIDO não é corrigir o defeito: é preciso procurar o mesmo
+             * número em todo lugar que ele aparece.
+             *
+             * A fração mostra os dois números de uma vez: `162/645` diz
+             * mais que qualquer um deles sozinho, e a barra de proporção
+             * que `metrica()` já desenha torna o 25% visível sem texto.
+             */
+            metrica('prontas para usar', K.stats.ativas != null ? `${K.stats.ativas}/${K.stats.total}` : K.stats.total, 'Ferramentas')
+          + (K.stats.desligadas ? metrica('desligadas', K.stats.desligadas, 'Ferramentas', 'existem no disco e não respondem') : '')
+          + metrica('que não lemos', K.stats.unreadableByOurScanner, 'Ferramentas'))}
+        ${bloco('Sessões', 'Sessões',
+            metrica('abertas', S.stats?.active ?? '—', 'Sessões')
+          + metrica('registradas', S.stats?.total ?? '—', 'Sessões'))}
+      </div>
+    </div>
+    <div class="mission" hidden>
+      <h2 style="margin-top:0">Precisa de você</h2>
+      ${pendentes.map(([c, t, aba]) => {
+        /** O número que abre a frase vira a grandeza; o resto é a explicação. */
+        const m = String(t).match(/^(\d+)\s+(.*)$/);
+        const corpo = m ? `<b class="qtd">${h(m[1])}</b> <span>${h(m[2])}</span>` : `<span>${h(t)}</span>`;
+        return aba
+          ? `<div class="${c} ir alerta" data-goto="${h(aba)}" tabindex="0" role="link" aria-label="${h(t)}, abrir ${h(aba)}">${corpo}</div>`
+          : `<div class="${c} alerta">${corpo}</div>`;
+      }).join('')}
+    </div>
+    `;
+  },
+
+  'Versão instalada': () => {
+    const R = D.release;
+    const cls = { MATCH: 'ok', BEHIND: 'blocked', DIVERGED: 'blocked', UNKNOWN: 'unknown' };
+    const nomePt = {
+      SOURCE: 'código escrito', BUILD: 'programa montado',
+      RUNTIME: 'versão em uso', ASSETS: 'arquivos instalados',
+    };
+    const estadoPt = { MATCH: 'em dia', BEHIND: 'atrasada', DIVERGED: 'diferente', UNKNOWN: 'não verificada' };
+    return cards([
+      ['partes em dia', R.stats.inSync + '/' + R.stats.total, R.healthy ? 'ok' : 'drift'],
+      ['desatualizadas', R.stats.outOfSync, R.stats.outOfSync ? 'blocked' : ''],
+      ['não verificadas', R.stats.unknown, R.stats.unknown ? 'unknown' : ''],
+      ['mais atrasada', R.stats.worstDistance + ' commits', R.stats.worstDistance ? 'blocked' : 'ok'],
+    ])
+    + (R.healthy ? '' : `<div class="note"><b>O programa que está rodando não é o que foi escrito.</b>
+        O NEXOS existe em quatro lugares ao mesmo tempo e nada mantém os quatro iguais: o <b>código</b> que escrevemos,
+        o <b>programa montado</b> a partir dele, a <b>versão em uso</b> — a que de fato responde quando você usa o sistema —
+        e os <b>arquivos de apoio</b> instalados no seu computador.
+        <br><br>Quando a versão em uso fica para trás, tudo que foi feito depois dela existe no projeto e <b>não chega até você</b>.
+        É o caso agora.
+        <br><br><b>Detalhe curioso:</b> o alerta que avisaria sobre isso foi criado depois, e está justamente na versão que
+        ainda não foi instalada. O aviso não aparece porque o problema que ele detecta é sobre ele mesmo.</div>`)
+    + '<h2>As quatro partes do sistema</h2>'
+    + table(['elo', 'valor', 'situação', 'distância', 'nota'], R.links.map((l) => `<tr>
+        <td>${h(nomePt[l.name] ?? l.name)}<div class="mono muted">${h(l.name)}</div></td>
+        <td class="mono">${l.observed ? h(String(l.value).slice(0, 12)) : '<span class="na">não observado</span>'}</td>
+        <td><span class="tag ${cls[l.state]}">${l.state === 'UNKNOWN' ? '?' : h(estadoPt[l.state] ?? l.state)}</span></td>
+        <td class="mono ${(l.distance ?? 0) > 0 ? 'blocked' : ''}">${h(l.distanceLabel)}</td>
+        <td class="muted">${h(l.note ?? '')}</td></tr>`))
+    + (R.healthy ? '<div class="note" style="border-left-color:var(--primary)">Tudo alinhado: o que roda é o que foi escrito.</div>' : `<div class="note"><b>Como consertar — é um comando só, e quem roda é você.</b> ${h(R.remedy.what)}:
+       <br><span class="mono">${h(R.remedy.command)}</span>
+       <br><span class="muted">${h(R.remedy.whose)}</span></div>`);
+  },
+
+  'Saúde': () => {
+    const H = D.health;
+    if (H.unavailable) return `<div class="note"><b>INDISPONÍVEL</b> — ${h(H.unavailable)}<br><span class="muted">Não conseguimos ler esta informação agora. Isso é um fato a mostrar, não uma tela em branco.</span></div>`;
+    const B = D.boot ?? {};
+    const WS = { CONTINUE: 'ok', COMPLETE: 'ok', HUMAN_DECISION_REQUIRED: 'drift', BLOCKED: 'blocked' };
+    return cards([
+      ['situação', ESTADO_PROJETO[H.state] ?? H.state, SEV[H.severity]],
+      ['o que fazer agora', B.workState ?? '—', WS[B.workState] ?? 'unknown'],
+      ['branch', B.git?.branch ?? '—'],
+      ['arquivos alterados', B.git?.dirtyCount ?? '—', B.git?.dirtyCount ? 'drift' : ''],
+      ['áreas checadas', H.stats.areas], ['sugestões', H.stats.planItems],
+      ['com comando pronto', H.stats.actionable], ['só aviso, sem ação', H.advisoryOnly.length],
+    ])
+    + (H.known ? '' : '<div class="note">Situação que o sistema não reconhece. Tratada como <b>desconhecida</b>, nunca como saudável — "não sabemos" não é "está tudo bem".</div>')
+    + '<h2>Por que está assim</h2>' + (H.reasons.length ? `<ul class="muted">${H.reasons.map((r) => `<li>${h(r)}</li>`).join('')}</ul>` : '<div class="na">sem motivo declarado</div>')
+    + '<h2>O que foi checado</h2>' + table(['área', 'evidência', 'sugestões'], H.areas.map((a) => `<tr>
+        <td class="mono">${h(a.area)}</td>
+        <td class="muted">${a.evidence.map(h).join('<br>') || '<span class="na">—</span>'}</td>
+        <td class="prosa">${a.plan.map((p) => `<span class="tag ${p.actionable ? 'drift' : 'muted'}">${h(p.action)}</span> ${h(p.detail)}${p.command ? `<div class="mono muted">${h(p.command)}</div>` : '<div class="na">sem comando — aviso, não tarefa</div>'}`).join('<br>') || '<span class="na">—</span>'}</td></tr>`))
+    + '<h2>O que esta tela ainda não sabe dizer</h2>'
+    + Object.entries(H.gaps).map(([k, v]) => `<div class="note"><b>${h(k)}</b> — ${h(v)}</div>`).join('');
+  },
+
+  /**
+   *   ANÁLISE QUE NINGUÉM LÊ NÃO É ANÁLISE
+   *
+   * O graphify roda por hook a cada commit e escreve em `graphify-out/`
+   * desde 2026-09-16. Ele já calculava quais peças concentram ligação
+   * demais, quais ligações surpreendem e quais perguntas o grafo levanta —
+   * e nada disso chegava a lugar nenhum. Seis dias de análise diária lidos
+   * por ninguém.
+   *
+   * Esta aba NÃO desenha grafo: o mapa já faz isso, e melhor. Aqui vai o
+   * que a análise CONCLUIU, em tabela, com o arquivo e a linha de cada
+   * peça — porque "forProject() tem 35 ligações" só vira decisão quando
+   * vem com "e mora em src/lib/capsule/paths.ts:109".
+   */
+  'Estrutura do código': () => {
+    const G = D.graphify ?? {};
+    if (!G.medido) {
+      return '<h2>Estrutura do código</h2>'
+        + `<div class="note"><b>Ainda não medimos.</b> ${h(G.motivo ?? 'a análise não está disponível')}<br>`
+        + '<span class="muted">Esta tela lê o que a ferramenta já escreveu — ela nunca roda análise sozinha.</span></div>';
+    }
+    const T = G.totais;
+    const pct = (n) => (n === null || n === undefined ? '—' : (n * 100).toFixed(1) + '%');
+
+    const quando = (d) => (d === 0 ? 'hoje' : d === 1 ? 'ontem' : d != null ? `há ${d} dias` : 'data desconhecida');
+    /**
+     *   DUAS PROCEDÊNCIAS NUNCA VIRAM UMA DATA SÓ
+     *
+     * Medido por verificação independente: `.graphify_analysis.json` tem
+     * hash IDÊNTICO nas seis pastas diárias, com mtime de 15/08, enquanto
+     * `graph.json` muda todo dia. A ferramenta regenera o grafo e copia a
+     * análise antiga para dentro da pasta nova. Mostrar "hoje" para as duas
+     * é o erro que esta tela cometeu uma vez.
+     */
+    const velha = G.coerencia?.mesmaExecucao === false || (G.defasagemDias ?? 0) > 2;
+    /** Marca visível nas seções que vêm da análise, não do mapa de hoje. */
+    const seloAnalise = velha ? ` <span class="tag drift">análise de ${h(G.analise.em ?? '?')}</span>` : '';
+
+    return cards([
+      ['peças no código', T.simbolos],
+      ['ligações entre elas', T.ligacoes],
+      ['funções e métodos', T.chamaveis, 'muted'],
+      ['grupos', T.grupos],
+      ['sem nenhuma ligação', T.semLigacao, T.semLigacao ? 'unknown' : ''],
+      ['perguntas em aberto', T.perguntas, T.perguntas ? 'drift' : ''],
+    ])
+    + `<div class="muted" style="margin-bottom:10px">Contagem e ligações vêm do mapa de <b>${h(G.grafo.em ?? G.pasta)}</b> (${quando(G.grafo.diasAtras)}), refeito a cada commit.</div>`
+    + (velha
+        ? `<div class="note"><b>A análise não acompanha o mapa.</b> O mapa é de ${h(G.grafo.em ?? '?')} e a análise é de <b>${h(G.analise.em ?? 'data desconhecida')}</b>`
+          + `${G.defasagemDias != null ? ` — ${G.defasagemDias} dias de diferença` : ''}. `
+          + `${G.coerencia?.idsConferidos ? `Nenhum dos ${G.coerencia.idsConferidos} identificadores da análise existe no mapa de hoje (${G.coerencia.idsQueCruzam} de ${G.coerencia.idsConferidos}), que é a prova de que saíram de execuções diferentes da ferramenta. ` : ''}`
+          + 'A ferramenta regenera o mapa todo dia e copia a análise antiga para a pasta nova.<br>'
+          + '<span class="muted">O que dá para contar no mapa de hoje — peças, ligações, grupos — está atualizado. '
+          + 'O que só a análise calcula — surpresas, perguntas, coesão — está marcado abaixo com a data dela.</span></div>'
+        : '')
+
+    + (T.semLigacao
+        ? `<div class="muted" style="margin-bottom:10px"><b>${T.semLigacao}</b> peças aparecem sem nenhuma ligação no mapa. `
+          + 'Isso <b>não</b> quer dizer código morto: o leitor não enxerga chamada por subprocesso, por string ou por configuração, '
+          + 'e uma auditoria anterior neste projeto classificou 8.041 linhas vivas como órfãs exatamente por ler este número como veredito.</div>'
+        : '')
+    + '<h2>Peças que muita coisa usa</h2>'
+    + '<div class="muted">Quanto mais coisas dependem de uma peça, mais caro fica mudá-la — e mais gente quebra quando ela quebra. '
+    + 'Não é defeito por si: é onde olhar primeiro antes de mexer. Clique numa linha para ver onde ela mora.</div>'
+    + (T.localizados < T.concentradores
+        ? `<div class="muted" style="margin:4px 0 6px"><b>${T.concentradores - T.localizados}</b> de ${T.concentradores} não puderam ser localizadas no arquivo.</div>`
+        : '')
+    + paginar(['peça', 'o que é', 'quantas a usam', 'onde mora'], G.concentradores.map((c) => linhaAbrivel(
+        `<td class="mono">${h(c.rotulo)}</td>
+         <td class="muted">${h(c.tipo ?? '—')}</td>
+         <td class="mono">${c.ligacoes}</td>
+         <td class="mono muted">${c.onde ? h(c.onde) : '<i>não localizada</i>'}</td>`,
+        dl([
+          ['peça', c.rotulo],
+          ['o que é', c.tipo],
+          ['quantas outras peças a usam', c.ligacoes],
+          ['arquivo e linha', c.onde],
+          ['grupo a que pertence', c.grupo],
+          ['o que isso significa', 'mudar esta peça alcança ' + c.ligacoes + ' outras. Antes de alterar a assinatura dela, vale ver quem chama.'],
+        ])
+      )))
+
+    + `<h2>Ligações que surpreendem${seloAnalise}</h2>`
+    + `<div class="muted">Chamadas que cruzam fronteiras que normalmente não se cruzam${G.inesperadas[0]?.porque ? `: ${h(G.inesperadas[0].porque)}` : ''}. Pode ser atalho que virou dívida, ou pode ser intencional — a tela aponta, não julga.</div>`
+    /* A coluna "por quê" era a MESMA frase nas cinco linhas — não distinguia
+       nada. O que distingue é quais arquivos se tocam; o motivo comum vai
+       uma vez no texto acima e o detalhe de cada uma fica no clique. */
+    + paginar(['de', 'para', 'atravessa'], G.inesperadas.map((x) => linhaAbrivel(
+        `<td class="mono">${h(x.de)}</td>
+         <td class="mono">${h(x.para)}</td>
+         <td class="mono muted">${h(x.arquivos.join('  →  ') || '—')}</td>`,
+        dl([
+          ['de', x.de],
+          ['para', x.para],
+          ['tipo de ligação', x.relacao],
+          ['arquivos', x.arquivos.join('  →  ')],
+          ['grau de certeza', x.certeza === 'EXTRACTED' ? 'lido do código (EXTRACTED)' : x.certeza === 'INFERRED' ? 'hipótese da ferramenta (INFERRED)' : x.certeza],
+          ['por que chamou atenção', x.porque],
+        ])
+      )))
+
+    + `<h2>Perguntas que a análise levanta${seloAnalise}</h2>`
+    + '<div class="muted">A ferramenta não responde nenhuma delas. São pontos onde a estrutura pede explicação — e a explicação pode ser "está certo assim".</div>'
+    /**
+     *   PROSA EM CÉLULA DE TABELA VIRA UMA COLUNA GIGANTE
+     *
+     * Medido a 390px: essa tabela de 2 colunas ("tipo"/"pergunta") tinha
+     * 2428px de altura pra 7 linhas — a coluna de pergunta é frase inteira
+     * mais o "porque", e uma célula não tem teto de largura próprio
+     * (`max-width` em `td` não existe pra `table-layout:auto`, já provado
+     * noutro comentário deste arquivo). Bloco empilhado em vez de linha de
+     * tabela: cada pergunta vira um cartão de largura inteira, que é onde
+     * prosa lê melhor — e a lista toda cabe num teto de altura próprio.
+     */
+    + (G.perguntas.length
+        ? `<div class="lista-perguntas">${G.perguntas.map((q) => `<div class="item-pergunta">`
+            + `<span class="tag">${h(q.tipoPt ?? q.tipo ?? '?')}</span>${q.tipoPt ? ` <span class="mono muted">${h(q.tipo)}</span>` : ''}`
+            + `<p>${h(q.pergunta)}</p>`
+            + (q.porque ? `<div class="muted">${h(q.porque)}</div>` : '')
+            + `</div>`).join('')}</div>`
+        : '<div class="na">nenhuma</div>')
+
+    + `<h2>Grupos do código${G.comunidadesOmitidas ? ` (${G.comunidades.length} maiores de ${G.comunidades.length + G.comunidadesOmitidas})` : ''}</h2>`
+    + '<div class="muted">A ferramenta agrupa o que anda junto. <b>Coesão</b> é o quanto as peças do grupo se usam entre si: '
+    + 'baixa num grupo pequeno é normal, baixa num grupo grande costuma dizer que ali dentro há mais de um assunto.</div>'
+    + (velha
+        ? '<div class="muted" style="margin-bottom:4px">A coesão fica de fora enquanto a análise não acompanhar o mapa: '
+          + 'casar um tamanho de hoje com uma coesão de outra execução produz uma linha que parece certa e não é.</div>'
+        : '')
+    + paginar(velha ? ['grupo', 'peças'] : ['grupo', 'peças', 'coesão'], G.comunidades.map((c) => `<tr>
+        <td>${h(c.nome)}</td>
+        <td class="mono">${c.tamanho}</td>
+        ${velha ? '' : `<td class="mono ${c.coesao !== null && c.coesao < 0.1 && c.tamanho >= 20 ? 'drift' : ''}">${pct(c.coesao)}</td>`}</tr>`));
+  },
+
+  'Trabalho feito': () => {
+    const C = D.checkpoints;
+    const gap = Object.entries(C.reasonGap);
+    return cards([
+      ['total', C.stats.total], ['tarefas encerradas', C.stats.terminals],
+      ['sem motivo anotado', C.stats.terminalsWithoutReason, 'drift'],
+      ['com prova localizável', C.reach.reachable + '/' + C.reach.terminals, C.reach.unreachable ? 'blocked' : 'ok'],
+      ['sem prova nenhuma', C.reach.trulyUnprovable, C.reach.trulyUnprovable ? 'blocked' : 'ok'],
+      ['linhas de trabalho', C.stats.heads], ['ligações quebradas', C.stats.danglingLinks, C.stats.danglingLinks ? 'blocked' : ''],
+    ])
+    + `<div class="note"><b>Falta a anotação, mas a prova existe.</b>
+       Em ${C.stats.terminalsWithoutReason} de ${C.reach.terminals} tarefas encerradas ninguém escreveu ali mesmo o motivo do encerramento.
+       Parece grave e não é: a prova do que aconteceu fica guardada no passo anterior, o momento em que o trabalho foi conferido.
+       <br><br><b>${C.reach.reachable} de ${C.reach.terminals}</b> tarefas têm prova localizável, quase sempre a <b>um passo</b> de distância
+       (${(C.reach.hops['1'] ?? 0)} delas). O número que daria preocupação real é o de tarefas sem prova nenhuma:
+       <b>${C.reach.trulyUnprovable}</b>. O custo aqui é ter que procurar, não ter perdido.</div>`
+    + '<h2>Tarefas sem motivo anotado, por tipo de encerramento</h2>'
+    + '<div class="muted">Onde a anotação falta, a prova está um passo atrás. Dá trabalho achar, mas não se perdeu.</div>'
+    + table(['situação', 'total', 'sem o campo', ''], gap.map(([st, g]) => {
+        const p = Math.round((g.missing / g.total) * 100);
+        return `<tr><td><span class="tag ${p === 100 ? 'blocked' : 'drift'}">${h(ESTADO_TAREFA[st] ?? st)}</span></td>
+          <td class="mono">${g.total}</td><td class="mono">${g.missing} (${p}%)</td>
+          <td><div class="bar"><i style="width:${p}%;background:var(${p === 100 ? '--danger' : '--warning'})"></i></div></td></tr>`;
+      }))
+    + '<h2 style="margin-top:8px">Saltos ate a evidência</h2>'
+    + table(['saltos', 'tarefas encerradas'], Object.entries(C.reach.hops).sort((a,b)=>Number(a[0])-Number(b[0]))
+        .map(([n, q]) => `<tr><td class="mono">${n === '0' ? 'no próprio' : n}</td><td class="mono">${q}</td></tr>`))
+    + '<h2>Em que pé estão as tarefas</h2>' + table(['situação', 'quantas'], Object.entries(C.byState).sort((a, b) => b[1] - a[1])
+        .map(([s, n]) => `<tr><td>${h(ESTADO_TAREFA[s] ?? s)}${ESTADO_TAREFA[s] ? `<div class="mono muted">${h(s)}</div>` : ''}</td><td class="mono">${n}</td></tr>`))
+    + `<h2>Tarefas que terminaram sem dizer por quê (${C.withoutReason.length} mostradas)</h2>`
+    + '<div class="muted" style="margin-bottom:6px">Clique numa linha para ver a tarefa inteira.</div>'
+    + table(['código', 'como terminou', 'quem fez', 'o que era a tarefa'], C.withoutReason.map((c) => linhaAbrivel(
+        `<td class="mono">${h((c.id || '').slice(0, 16))}…</td><td><span class="tag blocked">${h(ESTADO_TAREFA[c.state] ?? c.state)}</span></td>
+         <td class="mono muted">${h((c.actor || '—').replace('papel:', ''))}</td>
+         <td class="muted">${h((c.statement || '').slice(0, 90))}</td>`,
+        dl([
+          ['o que era a tarefa', c.statement],
+          ['como terminou', ESTADO_TAREFA[c.state] ?? c.state],
+          ['quem fez', (c.actor || '').replace('papel:', '') || null],
+          ['identificador', c.id],
+          ['por que aparece aqui', 'o motivo do encerramento não foi anotado neste registro. A prova do que aconteceu costuma estar no passo anterior, quando o trabalho foi conferido.'],
+        ])
+      )));
+  },
+
+  'Aprendizados': () => {
+    const M = D.memory;
+    const C = M.canonical ?? {};
+    if (C.unavailable) {
+      return `<div class="note"><b>NÃO FOI POSSÍVEL LER A FILA</b> — ${h(C.unavailable)}<br>
+        <span class="muted">Abaixo fica só a contagem de arquivos do diretório, que inclui histórico. Não e a fila.</span></div>`
+        + cards([['arquivos gravados', M.stats.candidatesInDirectory, 'unknown']]);
+    }
+    return cards([
+      ['ESPERANDO VOCÊ', C.stats.total, 'blocked'],
+      ['arquivos gravados', M.stats.candidatesInDirectory, 'unknown'],
+      ['parado há mais tempo', C.stats.oldestDays + 'd', 'blocked'],
+      ['com prova anexada', C.stats.withEvidence],
+      ['prova que dá para repetir', C.stats.withCommandEvidence],
+      ['que o robô aprova sozinho', M.stats.promotableByAgent, 'blocked'],
+    ])
+    + `<div class="note"><b>Os dois primeiros números parecem se contradizer, e não se contradizem.</b>
+       <b>${C.stats.total}</b> é o que realmente espera a sua decisão hoje.
+       <b>${M.stats.candidatesInDirectory}</b> é quantos arquivos existem guardados no computador.
+       <br><br>A diferença é o histórico: cada vez que um aprendizado é corrigido, aprovado ou aposentado, o sistema
+       <b>guarda a versão antiga em vez de apagar</b>. Contar arquivos seria contar o passado inteiro como se fosse trabalho pendente.</div>`
+    + `<h2>Fila de decisão — mais velho primeiro (${C.queue.length} mostrados)</h2>`
+    + `<div class="muted">Os de cima estão parados há mais tempo.</div>`
+    + '<div class="muted" style="margin-bottom:6px">Clique numa linha para ver a prova inteira e o que decidir.</div>'
+    + table(['parado há', 'tipo', 'prova', 'repetido?', 'o que foi aprendido'], C.queue.map((q) => linhaAbrivel(
+        `<td class="mono ${q.days >= 14 ? 'blocked' : q.days >= 7 ? 'drift' : ''}">${q.days}d</td>
+         <td class="muted">${h(q.proposedKind)}</td>
+         <td>${q.hasEvidence ? (q.evidenceLooksLikeCommand ? '<span class="tag ok">comando</span>' : '<span class="tag drift">prosa</span>') : '<span class="tag blocked">FALTA</span>'}</td>
+         <td class="muted mono">${q.likelyDuplicateOf.length ? q.likelyDuplicateOf.length + 'x' : '—'}</td>
+         <td>${h((q.fact || '').slice(0, 220))}</td>`,
+        dl([
+          ['afirmação', q.fact],
+          ['prova', q.evidence],
+          ['tipo de prova', q.evidenceLooksLikeCommand ? 'comando — dá para repetir' : 'prosa — não dá para repetir'],
+          ['de onde veio', q.proposedBy],
+          ['parado há', q.days + ' dias'],
+          ['possíveis duplicatas', q.likelyDuplicateOf.length ? q.likelyDuplicateOf.join(', ') : null],
+          ['identificador', q.id],
+          ['para aprovar', `nexos memory --promote ${q.id} --why "..."`],
+        ])
+      )))
+    + cardsLegado(M);
+  },
+
+  'Ferramentas': () => {
+    const MAQ = D.machine;
+    const cartaoMaquina = !(MAQ && MAQ.available) ? ''
+      : `<h2>esta máquina, agora</h2>` + table(['o quê', 'quanto', 'o que significa'], [
+        ['sessões Claude abertas', MAQ.sessions ?? 'não medido', h(MAQ.sessionsMeaning)],
+        ['projetos conhecidos', MAQ.projects ?? 'não medido', 'pastas com histórico de sessão'],
+        ['carga do processador', MAQ.loadPerCore === null ? 'não medida' : `${MAQ.loadPerCore} por núcleo`,
+         `${h(MAQ.loadLabel)} — 1,00 por núcleo é o limite antes de a máquina engasgar (${MAQ.cores ?? '?'} núcleos)`],
+      ].map((r) => `<tr><td>${r[0]}</td><td class="num">${r[1]}</td><td class="muted">${r[2]}</td></tr>`))
+      + (MAQ.denied.length
+        ? `<p class="muted">Não medido porque este ambiente recusou: ${h(MAQ.denied.join(' · '))}. Ausente aqui é ausente de medida, não de valor.</p>`
+        : '');
+    const C = D.capabilities;
+    // O cartão da máquina precede os dois caminhos: capability indisponível
+    // não apaga o que JÁ foi medido sobre o computador.
+    if (C.unavailable) return cartaoMaquina + `<div class="note"><b>INDISPONÍVEL</b> — ${h(C.unavailable)}<br><span class="muted">Não conseguimos ler esta informação agora. Isso é um fato a mostrar, não uma tela em branco.</span></div>`;
+    return cartaoMaquina + cards([
+      ['prontas para usar', C.stats.ativas ?? C.stats.total, (C.stats.ativas ?? C.stats.total) ? 'ok' : 'blocked'],
+      ['desligadas', C.stats.desligadas ?? 0, C.stats.desligadas ? 'drift' : 'muted'],
+      ['no catálogo', C.stats.total, 'muted'],
+      ['feitas por nós', C.stats.ours, 'muted'],
+      ['que não conseguimos ler', C.stats.unreadableByOurScanner, 'unknown'],
+      ['peso na memória', (C.stats.listingChars / 1000).toFixed(0) + 'k chars'],
+      ['peso delas', (C.stats.unreadableChars / 1000).toFixed(1) + 'k (' + (C.stats.unreadableChars / C.stats.listingChars * 100).toFixed(1) + '%)'],
+    ])
+    + (C.stats.desligadas
+        ? `<div class="note"><b>${C.stats.desligadas} das ${C.stats.total} estão desligadas</b> — ${Math.round(C.stats.desligadas / C.stats.total * 100)}% do catálogo. `
+          + 'Elas existem no disco e o assistente <b>não pode usá-las</b>. Desligar foi decisão de alguém; o que faltava era a tela dizer isso.<br>'
+          + '<span class="muted">Um catálogo grande anunciado como capacidade disponível promete o que não entrega — o mesmo defeito que faz um sistema de busca '
+          + 'sugerir a ferramenta errada quando a certa está desligada.</span></div>'
+        : '')
+    + '<h2>O quanto sabemos de cada ferramenta</h2>'
+    + '<div class="muted">Cada nível precisa de prova própria: o sistema não assume que uma ferramenta funciona só porque ela existe.</div>'
+    + (() => { const nivelPt = {
+        INSTALLED: 'está no computador', LISTED: 'aparece na lista', INVOCABLE: 'pode ser usada',
+        INVOKED: 'já foi usada alguma vez', EFFECTIVE: 'funcionou de verdade' };
+      /**
+       *   OMISSÃO DECLARADA, NUNCA OMISSÃO ESQUECIDA
+       *
+       * `LADDER` (console/capability-projection.mjs) tem SEIS degraus e esta
+       * tabela mostra cinco. A lista estava escrita à mão e `DISCOVERED`
+       * ficava de fora sem nenhuma linha explicando — indistinguível de
+       * esquecimento.
+       *
+       * Medido: `byRung` não traz `DISCOVERED`. Nenhum produtor emite esse
+       * degrau, então não há número para mostrar. A omissão está certa; o
+       * silêncio é que não estava. Declarada aqui, um teste confere que
+       * traduzidos + omitidos == LADDER, e um degrau novo na fonte reprova
+       * até alguém decidir o que fazer com ele.
+       */
+      const nivelOmitido = {
+        DISCOVERED: 'nenhum produtor emite este degrau — não há número a mostrar',
+      };
+      void nivelOmitido;
+      return table(['nível de certeza', 'quantas', 'por quê'], Object.keys(nivelPt).map((r) => `<tr>
+        <td><span class="tag ${C.byRung[r] === 0 ? 'blocked' : ''}">${h(nivelPt[r])}</span></td>
+        <td class="mono">${C.byRung[r] ?? 0}</td>
+        <td class="muted">${h(C.unmeasured[r] ?? '')}</td></tr>`)) + (C.usageScan
+        ? `<p class="muted">"já foi usada" medido em ${C.usageScan.transcriptsRead.toLocaleString('pt-BR')} históricos de sessão (${C.usageScan.linesRead.toLocaleString('pt-BR')} linhas${C.usageScan.unreadable ? `, ${C.usageScan.unreadable} ilegíveis` : ''}).</p>`
+        : `<p class="muted">"já foi usada" não foi medido desta vez — rode <code>nexos console --usage</code>. Zero aqui quer dizer que ninguém contou, não que ninguém usou.</p>`); })()
+    + (() => {
+      /**
+       *   NOME INTERNO NÃO É NOME DE TELA
+       *
+       * `skill`, `mcp`, `lsp`, `personal` são o vocabulário do host. Quem
+       * abre o painel quer saber O QUE a coisa faz e DE ONDE ela veio — não
+       * decorar a sigla que o sistema usa por dentro. O termo original fica
+       * como legenda, para quem precisar casar com a documentação.
+       */
+      const tipoPt = {
+        skill: ['habilidade', 'instrução que o assistente carrega quando o assunto casa'],
+        agent: ['agente', 'especialista que recebe uma tarefa inteira'],
+        command: ['comando', 'atalho que você digita começando com barra'],
+        mcp: ['servidor conectado', 'programa externo que expõe ferramentas'],
+        plugin: ['extensão', 'pacote que traz várias peças de uma vez'],
+        lsp: ['servidor de linguagem', 'analisa o código de uma linguagem específica'],
+      };
+      const origemPt = {
+        personal: ['do seu computador', 'instalada na sua conta, vale em todos os projetos'],
+        project: ['deste projeto', 'mora no repositório, vale só aqui'],
+        plugin: ['veio de extensão', 'entrou junto com um pacote instalado'],
+      };
+      /** `n` é o catálogo; a coluna de ativas vem do mapa paralelo. */
+      /**
+       * `n` é o catálogo; `ativas` é quantas dessas o assistente pode de
+       * fato usar. Separar as duas é o ponto: `command` tem 270 no
+       * catálogo e 14 ativas, e uma coluna só contando 270 diria o
+       * contrário do que acontece.
+       */
+      const linha = (dic, ativasPor) => ([k, n]) => {
+        const [nome, oque] = dic[k] ?? [k, ''];
+        /*
+         *   "—" É NÃO SEI; "0" É NENHUMA
+         *
+         * `ativasPor?.[k] ?? null` devolvia null para tipo SEM nenhuma
+         * ativa, porque a chave só existe quando alguma ativa foi contada.
+         * `lsp` aparecia como "—" tendo 12 no catálogo e ZERO ligadas —
+         * justamente o caso que a coluna existe para mostrar. Mapa
+         * presente e chave ausente é zero; mapa ausente é que é
+         * desconhecido (payload de uma versão anterior).
+         */
+        const a = ativasPor ? (ativasPor[k] ?? 0) : null;
+        const nenhuma = a === 0;
+        return `<tr><td><b>${h(nome)}</b>${k !== nome ? ` <span class="muted">${h(k)}</span>` : ''}</td>` +
+               `<td class="mono ${nenhuma ? 'blocked' : a !== null && a < n ? 'drift' : ''}">${a === null ? '—' : a}</td>` +
+               `<td class="mono muted">${n}</td><td class="muted">${h(oque)}${nenhuma ? ' <b class="blocked">· nenhuma ligada</b>' : ''}</td></tr>`;
+      };
+      return '<h2>Por tipo</h2>'
+        + '<div class="muted">"Prontas" é o que o assistente pode usar agora. "No catálogo" inclui as desligadas, que existem no disco e não respondem.</div>'
+        + table(['o que é', 'prontas', 'no catálogo', 'o que significa'], Object.entries(C.byKind).map(linha(tipoPt, C.ativasPorKind)))
+        + '<h2>Por origem</h2>'
+        + table(['de onde vem', 'prontas', 'no catálogo', 'o que significa'], Object.entries(C.bySource).map(linha(origemPt, C.ativasPorSource)));
+    })()
+    + `<div class="note"><b>Este número mede uma limitação nossa, não um defeito das ferramentas.</b>
+       São ${C.stats.unreadableByOurScanner} ferramentas cuja descrição o nosso leitor não conseguiu extrair.
+       A maioria <b>tem</b> descrição escrita — o que falha é a nossa leitura do arquivo.
+       <br><br>Os motivos são três e pedem consertos diferentes: o arquivo não tem o bloco de informações,
+       ou tem e ficou sem fechamento, ou tem e está mal escrito. Como os consertos são diferentes, juntar tudo
+       num número só não ajudaria ninguém. Nenhuma delas é nossa: todas vieram instaladas de fora.</div>`
+    + '<h2>Por que não conseguimos ler cada uma</h2>'
+    + table(['motivo', 'quantas', 'como consertar'], Object.entries(C.byIssue).map(([k, n]) => `<tr>
+        <td><span class="tag ${k === 'INVALID_YAML' ? 'blocked' : 'drift'}">${h({INVALID_YAML:'texto mal escrito', UNTERMINATED:'bloco sem fechamento', NO_FRONTMATTER:'sem bloco de informações', NO_FRONTMATTER_OR_UNKNOWN:'sem bloco, ou motivo não informado'}[k] ?? k)}</span></td>
+        <td class="mono">${n}</td>
+        <td class="muted">${h(C.issueMeaning[k] ?? 'causa não reportada pelo scanner — desconhecida não é "campo ausente"')}</td></tr>`))
+    + `<h2>Que o nosso leitor não conseguiu abrir (${C.unreadable.length} mostradas)</h2>`
+    + table(['tipo', 'nome', 'de onde vem', 'peso'], C.unreadable.map((i) => linhaAbrivel(
+        `<td class="muted">${h(i.kind)}</td><td class="mono">${h(i.name)}</td>
+         <td class="muted">${h(i.source)}</td><td class="mono">${h(i.chars ?? '—')}</td>`,
+        dl([
+          ['nome', i.name],
+          ['tipo', i.kind],
+          ['de onde vem', i.source === 'project' ? 'nossa (deste projeto)' : i.source],
+          ['peso no catálogo', (i.chars ?? 0) + ' caracteres'],
+          ['por que aparece aqui', 'nosso leitor não conseguiu extrair a descrição deste arquivo — na maioria dos casos a descrição existe'],
+        ])
+      )));
+  },
+
+  'Decisões': () => cards([
+    ['total', D.decisions.stats.total], ['valendo agora', D.decisions.stats.active],
+    ['canceladas', D.decisions.stats.revoked, 'muted'],
+    ['sem custo anotado', D.decisions.stats.withoutConsequences, D.decisions.stats.withoutConsequences ? 'drift' : ''],
+  ])
+  + '<div class="note">Decisão cancelada continua na lista: deixa de valer, mas não some do histórico.</div>'
+  + '<h2>Decisões em vigor sem o custo anotado</h2>'
+  + table(['código', 'assunto'], D.decisions.withoutConsequences.map((d) => `<tr>
+      <td class="mono">${h((d.id || '').slice(0, 16))}…</td><td>${h(d.title)}</td></tr>`)),
+
+  'Provas': () => {
+    const E = D.evidence;
+    const pct = (E.stats.legacyShare * 100).toFixed(0);
+    return cards([
+      ['provas guardadas', E.stats.total],
+      ['antigas, sem detalhe', E.stats.legacy, 'unknown'],
+      ['ligadas a uma tarefa', E.stats.bound],
+      ['avulsos de propósito', E.stats.unboundOnPurpose, E.stats.unboundOnPurpose ? '' : 'unknown'],
+      ['avulsos NÃO SABIDO', E.stats.unboundUnknown, E.stats.unboundUnknown ? 'drift' : ''],
+    ])
+    + `<div class="note"><b>${pct}% das provas são antigas e não guardam o detalhe que importa.</b>
+       Hoje cada prova registra se a verificação <b>passou</b>, <b>falhou</b> ou <b>nem chegou a rodar</b> — três situações
+       bem diferentes que antes eram anotadas do mesmo jeito. O mesmo vale para provas soltas: hoje dá para saber se ficaram
+       soltas de propósito ou se perderam a ligação com a tarefa.
+       <br><br>As ${E.stats.legacy} provas antigas vieram antes dessa distinção existir, e o sistema <b>não chuta</b> o que
+       elas significam: ficam marcadas como "não dá para saber".</div>`
+    + '<h2>Resultado da verificação</h2>'
+    + table(['resultado', 'quantas', 'observação'], Object.entries(E.byOutcome).map(([k, n]) => `<tr>
+        <td><span class="tag ${k === 'failed' ? 'blocked' : k === 'did_not_run' ? 'drift' : k.startsWith('UNKNOWN') ? 'unknown' : 'ok'}">${h({passed:'passou', failed:'falhou', did_not_run:'não chegou a rodar', UNKNOWN_LEGACY:'prova antiga, não dá para saber', UNKNOWN_VALUE:'valor fora do esperado'}[k] ?? k)}</span></td>
+        <td class="mono">${n}</td>
+        <td class="muted">${k === 'UNKNOWN_LEGACY' ? h(E.gaps.LEGACY_OUTCOME) : ''}</td></tr>`))
+    + '<h2>Ligação com a tarefa</h2>'
+    + table(['situação', 'quantas', 'observação'], Object.entries(E.byBinding).map(([k, n]) => `<tr>
+        <td><span class="tag ${k === 'UNBOUND_UNKNOWN' ? 'drift' : ''}">${h({BOUND:'ligada a uma tarefa', UNBOUND_ON_PURPOSE:'solta de propósito', UNBOUND_UNKNOWN:'solta, motivo desconhecido'}[k] ?? k)}</span></td>
+        <td class="mono">${n}</td>
+        <td class="muted">${k === 'UNBOUND_UNKNOWN' ? h(E.gaps.LEGACY_BINDING) : ''}</td></tr>`))
+    + '<h2>Por tipo de verificação</h2>'
+    + table(['verificação', 'quantas vezes'], Object.entries(E.byGate).map(([k, n]) => `<tr><td class="mono">${h(k)}</td><td class="mono">${n}</td></tr>`));
+  },
+
+  'Sessões': () => {
+    const S = D.sessions;
+    if (S.unavailable) return `<div class="note"><b>INDISPONIVEL</b> — ${h(S.unavailable)}</div>`;
+    return cards([
+      ['sessões', S.stats.total],
+      ['abertas (sem fechamento visto)', S.stats.active, S.stats.active ? 'drift' : ''],
+      ['fechadas', S.stats.closed],
+      ['sem última atividade', S.stats.withoutLastActivity, S.stats.withoutLastActivity ? 'unknown' : ''],
+      ['pasta com 2+ sessões', S.stats.sharedCheckouts, S.stats.sharedCheckouts ? 'blocked' : ''],
+    ])
+    + `<div class="note"><b>Amostra pequena demais para afirmar cobertura.</b>
+       ${h(S.registryIncomplete.medido)} — ${h(S.registryIncomplete.porque)}.
+       Consequência: ${h(S.registryIncomplete.consequencia)}. </div>`
+    + (S.emptyMeaning ? `<div class="note"><b>Nenhuma registrada não quer dizer ninguém trabalhando.</b> ${h(S.emptyMeaning)}.</div>` : '')
+    + `<div class="note"><b>ACTIVE e observação, não verificação.</b> ${h(S.observedStatus.ACTIVE)}.
+       A tela mostra <span class="mono">started_at</span> e não deduz "provavelmente morreu" — seria estado que ninguem mediu.</div>`
+    + (S.sharedCheckouts.length
+        ? '<h2>Checkouts com mais de uma sessão ACTIVE</h2>'
+          + table(['pasta', 'sessões abertas'], S.sharedCheckouts.map((c) => `<tr><td class="mono">${h(c.cwd)}</td><td class="mono blocked">${c.active}</td></tr>`))
+        : '')
+    + `<h2>Sessões (${S.rows.length})</h2>`
+    + table(['código', 'situação', 'aberta há', 'pasta', 'quem', 'tarefa'], S.rows.map((r) => `<tr>
+        <td class="mono">${h((r.id || '').slice(0, 14))}…</td>
+        <td><span class="tag ${r.status === 'ACTIVE' ? 'drift' : ''}">${h({ACTIVE:'aberta', CLOSED:'fechada'}[r.status] ?? r.status)}</span></td>
+        <td class="mono">${r.ageMinutes === null ? '<span class="na">?</span>' : r.ageMinutes + 'min'}</td>
+        <td class="mono muted">${h(r.cwd ?? '—')}</td>
+        <td class="muted">${h(r.agent_ref ?? '—')}</td>
+        <td class="mono muted">${h(r.checkpoint_id ? r.checkpoint_id.slice(0, 14) + '…' : '—')}</td></tr>`));
+  },
+
+  'Pesquisas': () => cards([
+    ['gravadas', D.research.stats.onDisk],
+    ['que o sistema consegue ler', D.research.stats.readable, D.research.stats.readable ? '' : 'blocked'],
+    ['perdidas por conflito', D.research.stats.invisibleByLineage, D.research.stats.invisibleByLineage ? 'blocked' : 'ok'],
+    ['com fonte citada', D.research.stats.withSources],
+  ])
+  + (D.research.diverged.length
+      ? `<div class="note"><b>Pesquisa perdida não é pesquisa inexistente.</b>
+         ${D.research.stats.invisibleByLineage} pesquisa(s) estão gravadas no computador e mesmo assim o sistema não consegue abrir.
+         <br><br>O motivo: elas foram salvas com o mesmo endereço interno, como dois arquivos com o mesmo nome na mesma pasta.
+         Sem saber qual é a versão certa, o sistema prefere não mostrar nenhuma a mostrar a errada.
+         <br><br>Isso é pior que não ter pesquisa: parece que ninguém trabalhou, quando na verdade o trabalho existe e está mudo.</div>`
+        + '<h2>Pesquisas que colidiram no mesmo endereço</h2>'
+        + D.research.diverged.map((d) => `<h3 class="mono muted" style="font-size:12px;margin:10px 0 4px">${h(d.sourceRef)} — ${d.count} records</h3>`
+            + table(['código', 'pergunta que a pesquisa responde'], d.records.map((r) => `<tr>
+                <td class="mono">${h((r.id || '').slice(0, 20))}…</td>
+                <td>${h(r.question ?? '—')}</td></tr>`))).join('')
+      : '')
+  + (D.research.emptyIsTheFinding
+      ? `<div class="note"><b>O acervo vazio é o achado.</b> ${D.research.stats.total} registro(s) contra um limiar de ${D.research.stats.thinThreshold}. Uma tela honesta sobre acervo vazio é mais útil que nenhuma tela: torna a lacuna visível em vez de deixá-la implícita.</div>`
+      : ''),
+};
+
+/**
+ * O orbe é instrumento de estado e precisa do canvas JÁ no DOM: <script> dentro
+ * de innerHTML não executa, então montar junto com o HTML não funcionaria.
+ */
+function montarOrbe() {
+  const c = document.getElementById('orb');
+  if (!c || c.dataset.pronto) return;
+  c.dataset.pronto = '1';
+  const o = window.__orb ?? { cor: 'var(--primary)', estado: 'UNKNOWN' };
+  const ctx = c.getContext('2d');
+  const cor = getComputedStyle(document.documentElement)
+    .getPropertyValue(o.cor.replace('var(', '').replace(')', '')).trim() || '#7CFF9E';
+
+  /**
+   *   PONTO SOLTO NÃO É NÚCLEO
+   *
+   * A versão anterior eram 130 partículas numa elipse PLANA, sem ligação e
+   * sem brilho — na tela do dono viravam poeira. Um núcleo se lê pela
+   * ESTRUTURA: profundidade, nós ligados entre si e densidade no centro.
+   *
+   * Esfera de Fibonacci (distribuição uniforme sem agrupamento nos polos),
+   * rotação em Y com projeção de perspectiva, e arestas pré-computadas
+   * pelos vizinhos mais próximos — a topologia não muda com a rotação, então
+   * o par é calculado UMA vez e só o desenho acompanha o giro.
+   */
+  const vel = { CONTINUE: 1, COMPLETE: 0.22, HUMAN_DECISION_REQUIRED: 0.1, BLOCKED: 0.04 }[o.estado] ?? 0;
+  const N = 300, R = 132, VIZINHOS = 2;
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  const nos = Array.from({ length: N }, (_, i) => {
+    const y = 1 - (i / (N - 1)) * 2;
+    const raio = Math.sqrt(Math.max(0, 1 - y * y));
+    const t = phi * i;
+    return { x: Math.cos(t) * raio * R, y: y * R, z: Math.sin(t) * raio * R };
+  });
+
+  /** Arestas: cada nó liga aos `VIZINHOS` mais próximos, sem repetir o par. */
+  const arestas = [];
+  const vistos = new Set();
+  for (let i = 0; i < N; i++) {
+    const d = [];
+    for (let j = 0; j < N; j++) {
+      if (i === j) continue;
+      const dx = nos[i].x - nos[j].x, dy = nos[i].y - nos[j].y, dz = nos[i].z - nos[j].z;
+      d.push([dx * dx + dy * dy + dz * dz, j]);
+    }
+    d.sort((a, b) => a[0] - b[0]);
+    for (let k = 0; k < VIZINHOS; k++) {
+      const j = d[k][1];
+      const chave = i < j ? `${i}-${j}` : `${j}-${i}`;
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      arestas.push([i, j]);
+    }
+  }
+
+  let ang = 0;
+  let w = 0, hh = 0;
+
+  /**
+   *   ATRIBUIR canvas.width A CADA QUADRO É REALOCAR O BUFFER A CADA QUADRO
+   *
+   * Escrever em `canvas.width`/`height` — mesmo o MESMO valor — descarta o
+   * bitmap, reinicia o contexto e força o compositor a refazer a camada. A
+   * 60fps isso é 60 realocações por segundo, e é o que o dono via como a tela
+   * "piscando como se estivesse carregando".
+   *
+   * Agora o tamanho é lido uma vez e só reescrito quando MUDA de verdade
+   * (redimensionar a janela), que é a única situação em que o buffer precisa
+   * ser outro. `devicePixelRatio` no lugar do 2 fixo: em tela comum evita
+   * pintar o dobro de pixels à toa.
+   */
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const ajustar = () => {
+    const nw = Math.round(c.clientWidth * dpr);
+    const nh = Math.round(c.clientHeight * dpr);
+    if (nw === w && nh === hh) return false;
+    w = c.width = nw;
+    hh = c.height = nh;
+    return true;
+  };
+  ajustar();
+
+  const draw = () => {
+    /*   DESISTIR NÃO É ESPERAR
+     *
+     * Aqui era `if (!w || !hh) { ajustar(); if (!w || !hh) return; }` — um
+     * `return` que NÃO reagendava. Quando o primeiro quadro pegava o canvas
+     * antes de o layout resolver, `clientWidth` era 0, o loop saía e nunca
+     * mais voltava: o `ResizeObserver` corrigia o tamanho e não havia quem
+     * chamasse `draw()` de novo. O orbe ficava em branco até recarregar a
+     * página, porque no recarregamento o tempo calha diferente.
+     *
+     * Bug de corrida não aparece na máquina de quem escreveu: aparece na
+     * de quem abre a página com o disco ocupado. Agora o quadro sem
+     * dimensão espera o próximo em vez de encerrar o loop. */
+    if (!w || !hh) { ajustar(); if (!w || !hh) { requestAnimationFrame(draw); return; } }
+    ctx.clearRect(0, 0, w, hh);
+    ctx.save();
+    ctx.translate(w / 2, hh / 2);
+    /** O núcleo cabe na menor dimensão, sem esticar em tela ultrawide. */
+    const esc = Math.min(w, hh) / (R * 2.6);
+    /** Escala do buffer: o desenho é feito em unidades lógicas. */
+    ctx.scale(esc, esc);
+    ang += 0.0016 * vel;
+
+    const cos = Math.cos(ang), sin = Math.sin(ang);
+    const proj = nos.map((n) => {
+      const x = n.x * cos + n.z * sin;
+      const z = -n.x * sin + n.z * cos;
+      /** Perspectiva: o que está atrás encolhe e apaga. */
+      const k = 420 / (420 + z);
+      return { x: x * k, y: n.y * k, k, z };
+    });
+
+    ctx.lineWidth = 0.6;
+    for (const [i, j] of arestas) {
+      const a = proj[i], b = proj[j];
+      const prof = (a.k + b.k) / 2;
+      ctx.globalAlpha = Math.max(0, (prof - 0.72) * 0.9);
+      ctx.strokeStyle = cor;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = cor;
+    for (const q of proj) {
+      const r = 1.1 * q.k * q.k;
+      ctx.globalAlpha = Math.max(0.08, (q.k - 0.7) * 1.9);
+      ctx.fillStyle = cor;
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, r, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    if (vel > 0) requestAnimationFrame(draw);
+  };
+  draw();
+
+  /* Com movimento, o próprio loop reage ao novo tamanho. Sem movimento
+     (`prefers-reduced-motion`) o desenho é único, então redimensionar exige
+     redesenhar à mão — senão o orbe fica no tamanho velho, esticado. */
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => { if (ajustar() && vel === 0) draw(); }).observe(c);
+  }
+}
+
+/** Delegação: vale para tabela que ainda nem foi renderizada. */
+const alternarLinha = (tr) => {
+  const alvo = tr && document.getElementById(tr.dataset.open);
+  if (!alvo) return false;
+  alvo.hidden = !alvo.hidden;
+  tr.classList.toggle('aberta', !alvo.hidden);
+  tr.setAttribute('aria-label', alvo.hidden ? 'ver detalhe' : 'ocultar detalhe');
+  return true;
+};
+
+document.addEventListener('click', (ev) => {
+  alternarLinha(ev.target.closest('tr[data-open]'));
+});
+
+/** Mesma delegação do `data-open`: vale para paginação criada depois deste script rodar. */
+document.addEventListener('click', (ev) => {
+  const botao = ev.target.closest('button[data-pagina]');
+  if (!botao) return;
+  const p = window.__paginas[botao.dataset.pagina];
+  if (!p) return;
+  const totalPaginas = Math.max(1, Math.ceil(p.linhas.length / p.porPagina));
+  p.atual = Math.min(Math.max(0, p.atual + Number(botao.dataset.dir)), totalPaginas - 1);
+  const alvo = document.getElementById(botao.dataset.pagina);
+  if (alvo) alvo.outerHTML = renderPagina(botao.dataset.pagina);
+});
+
+/**
+ * Enter e Espaço são o equivalente de teclado do clique. Espaço rola a
+ * página por padrão — `preventDefault` só quando a linha REALMENTE abriu,
+ * para não sequestrar a rolagem em qualquer outro lugar.
+ */
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  const tr = ev.target.closest && ev.target.closest('tr[data-open]');
+  if (!tr) return;
+  if (alternarLinha(tr)) ev.preventDefault();
+});
+
+const tabs = document.getElementById('tabs');
+const main = document.getElementById('panes');
+
+/**
+ *   ARIA PELA METADE != ARIA
+ *
+ * `aria-selected` num `<button>` sem `role="tab"` é atributo PROIBIDO, e
+ * `role="tablist"` com filhos que não são `tab` reprova `aria-required-children`.
+ * O padrão entra inteiro: papéis dos dois lados, ligação bidirecional
+ * (`aria-controls`/`aria-labelledby`) e roving tabindex — sem ele são dez
+ * paradas de Tab antes de chegar ao conteúdo.
+ */
+/**
+ *   ABA SEM ENDEREÇO NÃO É NAVEGAÇÃO, É ACORDEÃO
+ *
+ * As onze abas trocavam conteúdo sem tocar na URL. Consequência: recarregar
+ * voltava para a primeira, o botão voltar do navegador saía da página
+ * inteira em vez de voltar uma aba, e não havia como mandar a alguém o
+ * link de uma aba específica — a única forma de chegar em "Estrutura do
+ * código" era abrir o painel e clicar.
+ *
+ * `location.hash` dá rota real sem servidor e sem bundler, que é o que um
+ * arquivo aberto por `file://` permite. `#estrutura-do-codigo` abre direto
+ * na aba, o histórico do navegador funciona, e o link pode ser colado em
+ * qualquer lugar.
+ *
+ * O slug tira acento de verdade (`normalize('NFD')`): sem isso "Visão
+ * geral" viraria `vis-o-geral`, um endereço que ninguém digita e que não
+ * sobrevive a renomear a aba.
+ */
+const slug = (n) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const idAba = (n) => 'aba-' + slug(n);
+const idPainel = (n) => 'painel-' + slug(n);
+const nomes = Object.keys(panes);
+
+const selecionar = (name) => {
+  if (!nomes.includes(name)) return false;
+  [...tabs.children].forEach((x) => {
+    const ativo = x.dataset.name === name;
+    x.setAttribute('aria-selected', String(ativo));
+    x.tabIndex = ativo ? 0 : -1;
+    /*
+     *   ABRIR NUMA ABA DO FIM NÃO PODE DEIXAR O COLCHETE FORA DA TELA
+     *   — MAS `scrollIntoView` MEXE NO PONTO DE PARTIDA DO TAB
+     *
+     * A faixa de abas rola horizontal no celular (`nav{overflow-x:auto}`).
+     * Abrir `#sessoes` direto (ou clicar no HUD, que também chama
+     * `selecionar`) deixava a rolagem no ponto de repouso — a aba ativa
+     * podia ficar fora da parte visível da faixa.
+     *
+     * `Element.scrollIntoView` parecia o jeito óbvio — e reproduzia outro
+     * defeito: medido pelo verificador, o PRIMEIRO Tab de página recém-
+     * carregada ia para `SECTION#painel-visao-geral` (pulando o link do
+     * cabeçalho E a aba ativa). Causa provada anulando
+     * `Element.prototype.scrollIntoView`: o Chrome usa o alvo da CHAMADA
+     * mais recente de `scrollIntoView` como ponto de partida da navegação
+     * sequencial por teclado — e `selecionar()` roda no carregamento,
+     * chamando `scrollIntoView` na aba ativa ANTES de qualquer Tab.
+     *
+     * Ajuste manual de `nav.scrollLeft`, comparando os retângulos da aba e
+     * da nav, entrega o mesmo resultado visual (rola só o necessário, nada
+     * se já estiver visível) sem tocar a API que tem esse efeito colateral.
+     */
+    if (ativo) {
+      const rBtn = x.getBoundingClientRect(), rNav = tabs.getBoundingClientRect();
+      if (rBtn.left < rNav.left) tabs.scrollLeft -= (rNav.left - rBtn.left);
+      else if (rBtn.right > rNav.right) tabs.scrollLeft += (rBtn.right - rNav.right);
+    }
+  });
+  [...main.children].forEach((sec) => { sec.hidden = sec.dataset.name !== name; });
+  montarOrbe();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  /*
+   * O endereço acompanha a aba. Atribuir a `location.hash` cria entrada no
+   * histórico, então o botão voltar volta UMA aba em vez de sair da
+   * página. `file://` não aceita `history.pushState` em todo navegador;
+   * hash aceita em todos.
+   */
+  const alvo = slug(name);
+  if (decodeURIComponent(location.hash.slice(1)) !== alvo) location.hash = alvo;
+  /*
+   * O link para o mapa carrega a aba de origem, para o "voltar" de lá cair
+   * onde a pessoa estava. Sem isto, ir ao mapa e voltar custa reencontrar
+   * a aba — o tipo de atrito que faz ninguém usar os dois juntos.
+   */
+  const paraOMapa = document.querySelector('a[href^="graph-view.html"]');
+  if (paraOMapa) paraOMapa.href = `graph-view.html#volta=${alvo}`;
+  return true;
+};
+
+/** Nome da aba a partir do endereço — `#estrutura-do-codigo` → a aba. */
+const porSlug = (s) => nomes.find((n) => slug(n) === s);
+
+nomes.forEach((name, i) => {
+  const b = document.createElement('button');
+  b.textContent = name;
+  b.id = idAba(name);
+  b.dataset.name = name;
+  b.setAttribute('role', 'tab');
+  b.setAttribute('aria-controls', idPainel(name));
+  b.setAttribute('aria-selected', String(i === 0));
+  b.tabIndex = i === 0 ? 0 : -1;
+  b.onclick = () => selecionar(name);
+  b.addEventListener('keydown', (ev) => {
+    const passo = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1
+                : ev.key === 'Home' ? -i : ev.key === 'End' ? nomes.length - 1 - i : null;
+    if (passo === null) return;
+    ev.preventDefault();
+    const alvo = tabs.children[(i + passo + nomes.length) % nomes.length];
+    selecionar(alvo.dataset.name);
+    alvo.focus();
+  });
+  tabs.appendChild(b);
+
+  const sec = document.createElement('section');
+  sec.dataset.name = name;
+  sec.id = idPainel(name);
+  sec.setAttribute('role', 'tabpanel');
+  sec.setAttribute('aria-labelledby', idAba(name));
+  sec.tabIndex = 0;
+  sec.hidden = i !== 0;
+  sec.innerHTML = panes[name]();
+  agrupar(sec);
+  main.appendChild(sec);
+});
+
+/**
+ *   O ENDEREÇO MANDA NA ABERTURA, NÃO A ORDEM DAS ABAS
+ *
+ * Abrir `console.html#provas` tem que cair em "Provas", não na primeira
+ * aba. Endereço desconhecido — porque a aba foi renomeada, ou porque
+ * alguém digitou errado — cai na primeira em vez de deixar a tela vazia.
+ */
+selecionar(porSlug(decodeURIComponent(location.hash.slice(1))) ?? nomes[0]);
+
+/**
+ * Voltar e avançar do navegador. O `hashchange` também dispara quando é a
+ * própria `selecionar()` que escreve o endereço; comparar com a aba já
+ * ativa corta o laço sem precisar de sinalizador de estado, que é a
+ * variável que alguém esquece de baixar num caminho de erro.
+ */
+window.addEventListener('hashchange', () => {
+  const nome = porSlug(decodeURIComponent(location.hash.slice(1)));
+  if (!nome) return;
+  const jaAtiva = document.getElementById(idAba(nome))?.getAttribute('aria-selected') === 'true';
+  if (!jaAtiva) selecionar(nome);
+});
+
+/**
+ * Delegação de `data-goto`: rótulo, número ou alerta que tem aba
+ * correspondente leva até ela. Vale para conteúdo que ainda nem foi
+ * renderizado, e responde a teclado como qualquer link.
+ */
+const irParaAba = (el) => {
+  const alvo = el && el.closest('[data-goto]');
+  return alvo ? selecionar(alvo.dataset.goto) : false;
+};
+document.addEventListener('click', (ev) => { irParaAba(ev.target); });
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter' && ev.key !== ' ') return;
+  if (!ev.target.closest || !ev.target.closest('[data-goto]')) return;
+  if (irParaAba(ev.target)) ev.preventDefault();
+});
+
+montarOrbe();
+</script>
+</body>
+</html>

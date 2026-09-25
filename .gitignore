@@ -1,0 +1,84 @@
+node_modules
+dist/
+# Diretórios de troca do build atômico (scripts/build.mjs). Em build normal não
+# sobrevivem ao fim do script; se o processo for interrompido no meio, ficam no
+# disco — e sem estas linhas apareceriam como untracked, poluindo o `git status`
+# de quem não sabe o que são. Achado por verificação independente.
+dist.next/
+dist.prev/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+*.db
+*.egg-info/
+.env
+__pycache__/
+.megamemory/*.db-*
+
+# NexOS Capsule — memoria de projeto/sistema/trabalho NUNCA sai da maquina
+# (nexos://decision/memoria-nunca-sai-da-maquina). Ate aqui `records/` era
+# PORTAVEL e ia para GitHub/npm de proposito (C12.2 §5, revogada); o dono
+# decidiu que o backup fora do Mac passa a ser Time Machine, nao git.
+# Portavel: so o manifest (identidade canonica) e o Project Map. Local:
+# records, memory, proposals, runtime, derivados.
+.nexos/*
+!.nexos/manifest.yaml
+!.nexos/map/
+!.nexos/.gitignore
+.nexos/.local/
+.nexos/memory/
+
+# Lixo do macOS
+.DS_Store
+
+# Instalacoes locais de OUTRAS ferramentas de skill (npx skills add) — nao sao
+# do pacote; veio de heygen-com/hyperframes.
+# A barra inicial ANCORA na raiz: sem ela, `skills/` casaria tambem com
+# assets/skills/ e engine/skills/, que sao do pacote.
+/skills/
+/skills-lock.json
+/AGENTS.md
+# Host projections are regenerated from the canonical Store/registries.
+# SOURCE != PROJECTION; ownership receipts live under ignored .nexos/.local/.
+/AGENTS.override.md
+/.codex/
+
+# Configs locais de IDEs / outros agentes
+/.kiro/
+/.qwen/
+/.trae/
+/.agents/
+#
+# .claude/settings.json e' a metade PORTAVEL da projecao do host (agent,
+# autoMemoryEnabled) — sem ela um clone fresco perde o guard de
+# HOST_MEMORY_AUTHORITY_CONFLICT ate o bootstrap rodar de novo. O resto de
+# .claude/ (settings.local.json com o hook de path absoluto da maquina,
+# agents/, skills/, agent-memory/, manifests de projecao) continua local —
+# mesmo padrao de `.nexos/*` acima.
+#   TRACKED != PORTABLE, mas aqui e' o oposto que falta: PORTABLE != TRACKED
+/.claude/*
+!/.claude/settings.json
+
+# build artifact do npm pack — gerado pelo gate de release, nunca versionado
+*.tgz
+
+# grafo do graphify — projecao regeneravel do codigo, nao fonte.
+# PROVIDER OUTPUT != CANONICAL RECORD: o Store e a autoridade; isto e cache de
+# entendimento e reconstroi com `/graphify .` em qualquer clone.
+graphify-out/
+
+# artefatos de medicao — NAO sao record canonico, nao entram em .nexos
+.audit/
+
+# MCP session scratch — not part of the source
+.playwright-mcp/
+
+# git worktrees soltos na raiz (branches de trabalho antigas, pre-P0,
+# .claude/worktrees/ ja cobria por /.claude/* acima) — nao sao artefato desta
+# sessao, e remover a arvore apagaria trabalho nao commitado de outro branch;
+# so pararam de aparecer como untracked.
+/.worktrees/
+
+# CONSOLE: telas geradas por console/build-*.mjs — artefato, nao fonte
+console/graph-view.html
+console/console.html

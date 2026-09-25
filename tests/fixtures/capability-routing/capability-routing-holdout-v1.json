@@ -1,0 +1,515 @@
+{
+  "holdout_version": 1,
+  "created": "2026-09-20",
+  "catalog_source": "nexos capabilities --json (667 items, 162 enabled)",
+  "rules": [
+    "acceptable targets are enabled:true capability ids only",
+    "queries never quote a capability name or description",
+    "frozen before any retrieval mechanism was run"
+  ],
+  "tasks": [
+    {
+      "id": "fe-01",
+      "query": "a tela de checkout ficou com cara de template pronto; queria que parecesse produto de verdade",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "frontend",
+      "acceptable_top1": [
+        "skill:project::frontend-design"
+      ],
+      "acceptable_top3": [
+        "skill:project::frontend-design",
+        "skill:personal::creative-design--ui-ux-pro-max",
+        "skill:personal::anthropic-skills:web-artifacts-builder"
+      ]
+    },
+    {
+      "id": "fe-02",
+      "query": "landing takes forever to paint",
+      "lang": "en",
+      "forma": "curta",
+      "dominio": "frontend",
+      "acceptable_top1": [
+        "skill:personal::development--performance"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--performance",
+        "mcp:personal:chrome-devtools",
+        "skill:personal::seo-technical"
+      ]
+    },
+    {
+      "id": "fe-03",
+      "query": "no celular os botoes desse app ficam minusculos e ninguem acerta com o dedo",
+      "lang": "pt",
+      "forma": "parafrase",
+      "dominio": "frontend",
+      "acceptable_top1": [
+        "skill:personal::creative-design--mobile-design"
+      ],
+      "acceptable_top3": [
+        "skill:personal::creative-design--mobile-design",
+        "skill:project::frontend-design",
+        "skill:personal::creative-design--ui-ux-pro-max"
+      ]
+    },
+    {
+      "id": "be-01",
+      "query": "num servico Node com Prisma a rota esta fazendo query direto; como separo isso em camadas sem virar cerimonia?",
+      "lang": "pt",
+      "forma": "tecnica",
+      "dominio": "backend",
+      "acceptable_top1": [
+        "skill:personal::development--backend-dev-guidelines"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--backend-dev-guidelines",
+        "skill:personal::development--clean-code",
+        "skill:plugin:ponytail@ponytail:ponytail:ponytail"
+      ]
+    },
+    {
+      "id": "be-02",
+      "query": "where should a Node API turn a thrown error into the response the client actually sees?",
+      "lang": "en",
+      "forma": "parafrase",
+      "dominio": "backend",
+      "acceptable_top1": [
+        "skill:personal::development--backend-dev-guidelines"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--backend-dev-guidelines",
+        "skill:personal::development--clean-code",
+        "skill:personal::find-docs"
+      ]
+    },
+    {
+      "id": "be-03",
+      "query": "add the POST route for refunds, but leave a failing test first and then make it pass",
+      "lang": "en",
+      "forma": "multi-intent",
+      "dominio": "backend",
+      "acceptable_top1": [
+        "skill:personal::development--test-driven-development",
+        "agent:personal::nexos-dev"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--test-driven-development",
+        "agent:personal::nexos-dev",
+        "skill:personal::development--verification-before-completion"
+      ]
+    },
+    {
+      "id": "db-01",
+      "query": "check the project's database and tell me how many orders came in yesterday",
+      "lang": "en",
+      "forma": "coloquial",
+      "dominio": "database",
+      "acceptable_top1": [
+        "mcp:personal:claude.ai Supabase"
+      ],
+      "acceptable_top3": [
+        "mcp:personal:claude.ai Supabase"
+      ]
+    },
+    {
+      "id": "db-02",
+      "query": "queria um desenho das tabelas e das ligacoes entre elas pra colar na documentacao",
+      "lang": "pt",
+      "forma": "parafrase",
+      "dominio": "database",
+      "acceptable_top1": [
+        "skill:personal::creative-design--mermaid-diagrams"
+      ],
+      "acceptable_top3": [
+        "skill:personal::creative-design--mermaid-diagrams",
+        "skill:personal::productivity--doc-coauthoring"
+      ]
+    },
+    {
+      "id": "db-03",
+      "query": "adding a NOT NULL column to a 40M row table without taking the app down - what is the safe order of operations?",
+      "lang": "en",
+      "forma": "tecnica",
+      "dominio": "database",
+      "acceptable_top1": [
+        "skill:personal::find-docs",
+        "mcp:personal:context7"
+      ],
+      "acceptable_top3": [
+        "skill:personal::find-docs",
+        "mcp:personal:context7",
+        "mcp:personal:claude.ai Supabase",
+        "agent:personal::nexos-architect"
+      ]
+    },
+    {
+      "id": "sec-01",
+      "query": "olha esse fluxo de login e me diz se alguem consegue entrar sem saber a senha",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "security",
+      "expected": "NO_ELIGIBLE_CAPABILITY"
+    },
+    {
+      "id": "sec-02",
+      "query": "any secrets committed in here?",
+      "lang": "en",
+      "forma": "curta",
+      "dominio": "security",
+      "expected": "NO_ELIGIBLE_CAPABILITY"
+    },
+    {
+      "id": "sec-03",
+      "query": "levanta os vetores de ataque do fluxo de pagamento e classifica por impacto",
+      "lang": "pt",
+      "forma": "tecnica",
+      "dominio": "security",
+      "expected": "NO_ELIGIBLE_CAPABILITY"
+    },
+    {
+      "id": "br-01",
+      "query": "entra no portal da operadora usando minha sessao ja logada e baixa a fatura de agosto",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "browser",
+      "acceptable_top1": [
+        "skill:personal::anthropic-skills:chrome-browser"
+      ],
+      "acceptable_top3": [
+        "skill:personal::anthropic-skills:chrome-browser",
+        "mcp:personal:browser-use",
+        "skill:personal::anthropic-skills:built-in-browser"
+      ]
+    },
+    {
+      "id": "br-02",
+      "query": "script that signs into staging, fills the form and asserts the success toast shows up",
+      "lang": "en",
+      "forma": "tecnica",
+      "dominio": "browser",
+      "acceptable_top1": [
+        "mcp:personal:playwright",
+        "skill:personal::utilities--browser-automation"
+      ],
+      "acceptable_top3": [
+        "mcp:personal:playwright",
+        "skill:personal::utilities--browser-automation",
+        "mcp:personal:browser-use"
+      ]
+    },
+    {
+      "id": "br-03",
+      "query": "pagina cuspindo erro no console",
+      "lang": "pt",
+      "forma": "curta",
+      "dominio": "browser",
+      "acceptable_top1": [
+        "mcp:personal:chrome-devtools"
+      ],
+      "acceptable_top3": [
+        "mcp:personal:chrome-devtools",
+        "skill:personal::development--systematic-debugging",
+        "mcp:personal:playwright"
+      ]
+    },
+    {
+      "id": "rs-01",
+      "query": "ainda vale comecar projeto novo com Redux ou o pessoal migrou? quero o que estao falando agora, nao o que valia em 2022",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "research",
+      "acceptable_top1": [
+        "skill:personal::last30days"
+      ],
+      "acceptable_top3": [
+        "skill:personal::last30days",
+        "skill:plugin:requesthunt@opc-skills:requesthunt:requesthunt",
+        "skill:personal::anthropic-skills:deep-research"
+      ]
+    },
+    {
+      "id": "rs-02",
+      "query": "compare the main managed vector store vendors including price, then hand me a written brief I can forward",
+      "lang": "en",
+      "forma": "multi-intent",
+      "dominio": "research",
+      "acceptable_top1": [
+        "skill:personal::anthropic-skills:deep-research"
+      ],
+      "acceptable_top3": [
+        "skill:personal::anthropic-skills:deep-research",
+        "agent:personal::nexos-analyst",
+        "skill:personal::productivity--doc-coauthoring"
+      ]
+    },
+    {
+      "id": "rs-03",
+      "query": "tenho seis PDFs de norma; quero perguntar coisas e receber a resposta dizendo de qual arquivo saiu",
+      "lang": "pt",
+      "forma": "parafrase",
+      "dominio": "research",
+      "acceptable_top1": [
+        "skill:personal::notebooklm"
+      ],
+      "acceptable_top3": [
+        "skill:personal::notebooklm",
+        "mcp:personal:notebooklm",
+        "skill:personal::anthropic-skills:pdf"
+      ]
+    },
+    {
+      "id": "dc-01",
+      "query": "vamos escrever juntos a spec dessa feature, eu passo o contexto e voce vai lapidando",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "docs",
+      "acceptable_top1": [
+        "skill:personal::productivity--doc-coauthoring"
+      ],
+      "acceptable_top3": [
+        "skill:personal::productivity--doc-coauthoring",
+        "skill:personal::anthropic-skills:docs",
+        "skill:personal::create-plans"
+      ]
+    },
+    {
+      "id": "dc-02",
+      "query": "put this into a Word file I can email",
+      "lang": "en",
+      "forma": "curta",
+      "dominio": "docs",
+      "acceptable_top1": [
+        "skill:personal::anthropic-skills:docx"
+      ],
+      "acceptable_top3": [
+        "skill:personal::anthropic-skills:docx",
+        "skill:personal::anthropic-skills:docs"
+      ]
+    },
+    {
+      "id": "dc-03",
+      "query": "build the monthly cost sheet with a total column that sums the previous ones",
+      "lang": "en",
+      "forma": "tecnica",
+      "dominio": "docs",
+      "acceptable_top1": [
+        "skill:personal::document-xlsx",
+        "skill:personal::anthropic-skills:xlsx"
+      ],
+      "acceptable_top3": [
+        "skill:personal::document-xlsx",
+        "skill:personal::anthropic-skills:xlsx",
+        "mcp:personal:antv-chart"
+      ]
+    },
+    {
+      "id": "ar-01",
+      "query": "antes de eu mexer, quero saber o que quebra se eu trocar o cliente HTTP que todo mundo usa",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "architecture",
+      "acceptable_top1": [
+        "agent:personal::nexos-architect",
+        "skill:personal::graphify"
+      ],
+      "acceptable_top3": [
+        "agent:personal::nexos-architect",
+        "skill:personal::graphify",
+        "skill:personal::create-plans"
+      ]
+    },
+    {
+      "id": "ar-02",
+      "query": "who calls this module, and what breaks downstream if I change its signature?",
+      "lang": "en",
+      "forma": "parafrase",
+      "dominio": "architecture",
+      "acceptable_top1": [
+        "skill:personal::graphify"
+      ],
+      "acceptable_top3": [
+        "skill:personal::graphify",
+        "agent:personal::nexos-architect"
+      ]
+    },
+    {
+      "id": "ar-03",
+      "query": "decide se separa isso em dois servicos e deixa registrado o motivo pra quem vier depois",
+      "lang": "pt",
+      "forma": "multi-intent",
+      "dominio": "architecture",
+      "acceptable_top1": [
+        "agent:personal::nexos-architect"
+      ],
+      "acceptable_top3": [
+        "agent:personal::nexos-architect",
+        "skill:personal::productivity--doc-coauthoring",
+        "skill:personal::create-plans"
+      ]
+    },
+    {
+      "id": "ts-01",
+      "query": "quero o teste dessa regra de desconto escrito antes do codigo",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "testing",
+      "acceptable_top1": [
+        "skill:personal::development--test-driven-development"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--test-driven-development",
+        "agent:personal::nexos-dev"
+      ]
+    },
+    {
+      "id": "ts-02",
+      "query": "prove it works before I call it done",
+      "lang": "en",
+      "forma": "curta",
+      "dominio": "testing",
+      "acceptable_top1": [
+        "skill:personal::development--verification-before-completion"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--verification-before-completion",
+        "agent:personal::nexos-verifier",
+        "skill:personal::workflow-automation--yeet"
+      ]
+    },
+    {
+      "id": "ts-03",
+      "query": "end-to-end run in a real browser covering the signup flow, headless",
+      "lang": "en",
+      "forma": "tecnica",
+      "dominio": "testing",
+      "acceptable_top1": [
+        "mcp:personal:playwright",
+        "skill:personal::utilities--browser-automation"
+      ],
+      "acceptable_top3": [
+        "mcp:personal:playwright",
+        "skill:personal::utilities--browser-automation",
+        "skill:personal::development--test-driven-development"
+      ]
+    },
+    {
+      "id": "dg-01",
+      "query": "esse bug so aparece em producao, ja chutei tres correcoes e nenhuma pegou",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "debugging",
+      "acceptable_top1": [
+        "skill:personal::development--systematic-debugging"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--systematic-debugging",
+        "agent:personal::nexos-dev"
+      ]
+    },
+    {
+      "id": "dg-02",
+      "query": "a test that passed yesterday fails after the merge and I have no idea what changed",
+      "lang": "en",
+      "forma": "parafrase",
+      "dominio": "debugging",
+      "acceptable_top1": [
+        "skill:personal::development--systematic-debugging"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--systematic-debugging",
+        "skill:personal::graphify",
+        "skill:personal::git--git-context-controller"
+      ]
+    },
+    {
+      "id": "dg-03",
+      "query": "worker comendo RAM sem parar",
+      "lang": "pt",
+      "forma": "curta",
+      "dominio": "debugging",
+      "acceptable_top1": [
+        "skill:personal::development--systematic-debugging"
+      ],
+      "acceptable_top3": [
+        "skill:personal::development--systematic-debugging",
+        "skill:personal::development--performance"
+      ]
+    },
+    {
+      "id": "mm-01",
+      "query": "o que a gente decidiu sobre o formato do token na semana passada?",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "memory",
+      "acceptable_top1": [
+        "command:personal::recall"
+      ],
+      "acceptable_top3": [
+        "command:personal::recall",
+        "command:personal::sync-claude-sessions",
+        "skill:personal::git--git-context-controller"
+      ]
+    },
+    {
+      "id": "mm-02",
+      "query": "designing how my agent keeps and retrieves what it learned across sessions - short term versus vector store",
+      "lang": "en",
+      "forma": "tecnica",
+      "dominio": "memory",
+      "acceptable_top1": [
+        "skill:personal::ai-research--agent-memory-systems"
+      ],
+      "acceptable_top3": [
+        "skill:personal::ai-research--agent-memory-systems",
+        "skill:personal::ai-research--langgraph"
+      ]
+    },
+    {
+      "id": "mm-03",
+      "query": "quero marcar onde parei hoje pra outra sessao conseguir continuar de onde eu deixei",
+      "lang": "pt",
+      "forma": "parafrase",
+      "dominio": "memory",
+      "acceptable_top1": [
+        "skill:personal::git--git-context-controller"
+      ],
+      "acceptable_top3": [
+        "skill:personal::git--git-context-controller",
+        "command:personal::recall",
+        "command:personal::sync-claude-sessions",
+        "skill:personal::nexos-handoff"
+      ]
+    },
+    {
+      "id": "do-01",
+      "query": "subi o servico no Railway e agora quero apontar meu dominio pra ele",
+      "lang": "pt",
+      "forma": "coloquial",
+      "dominio": "devops",
+      "acceptable_top1": [
+        "skill:personal::railway--railway-docs"
+      ],
+      "acceptable_top3": [
+        "skill:personal::railway--railway-docs",
+        "skill:personal::find-docs"
+      ]
+    },
+    {
+      "id": "do-02",
+      "query": "multi-stage Dockerfile plus a compose file for this service",
+      "lang": "en",
+      "forma": "tecnica",
+      "dominio": "devops",
+      "expected": "NO_ELIGIBLE_CAPABILITY"
+    },
+    {
+      "id": "do-03",
+      "query": "quero que os testes rodem a cada push e que o merge trave se algum falhar",
+      "lang": "pt",
+      "forma": "multi-intent",
+      "dominio": "devops",
+      "expected": "NO_ELIGIBLE_CAPABILITY"
+    }
+  ]
+}

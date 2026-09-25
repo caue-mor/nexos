@@ -1,0 +1,67 @@
+{
+  // Two contracts, deliberately separated:
+  //   tsconfig.json       = build / product compile contract. Stays minimal,
+  //                          consumed by `tsc` (npm run build) and
+  //                          `tsc --noEmit` (npm run typecheck:build, the
+  //                          src-only check). Untouched by this file's
+  //                          stricter flags.
+  //   tsconfig.check.json = stricter PROJECT QUALITY contract, consumed by
+  //                          `tsc -p tsconfig.check.json --noEmit` (npm run
+  //                          typecheck AND npm run typecheck:all — same
+  //                          command, two names; P0 achado do verifier:
+  //                          `npm run typecheck` sozinho nunca cobria
+  //                          tests/, e um import morto em 3 arquivos de
+  //                          teste só apareceu rodando a suíte inteira).
+  //                          Never emits, is not part of `build`. It
+  //                          extends tsconfig.json and adds
+  //                          noUnusedParameters / noImplicitReturns /
+  //                          noFallthroughCasesInSwitch / noUnusedLocals
+  //                          here, not in the build config, because its
+  //                          `include` (src/**/*, tests/**/*,
+  //                          vitest.config.ts) is a strict superset of the
+  //                          build's (src/**/* only) — the quality gate
+  //                          covers everything the build covers, plus
+  //                          tests, without loosening what ships.
+  //
+  // COVERED SURFACE (explicit, not accidental):
+  //   IN:  src/**/*, tests/**/*, vitest.config.ts
+  //   OUT: scripts/**/* — measured at 159 real type errors (2026-08-19,
+  //        tsc -p tsconfig.check.json --noEmit against scripts/**/*).
+  //        Tracked debt, not part of this change — fix and include in a
+  //        follow-up.
+  //   OUT: node_modules, dist, assets — see "exclude" below (build
+  //        artifacts / third-party code, never source of truth).
+  //
+  // COUNTERFACTUAL PROOF — re-run against THIS file (tsc -p
+  // tsconfig.check.json), not CLI flag overrides against tsconfig.json.
+  // Each flag: PRECONDITION (green) -> RED (fixture added, real error) ->
+  // RESTORE (fixture deleted) -> GREEN (green again). Fixtures were
+  // temporary files under tests/ (the covered surface), one flag at a
+  // time, deleted immediately after capture — none checked in. To
+  // reproduce, add one function to any file under tests/ and run
+  // `npx tsc -p tsconfig.check.json`:
+  //   noUnusedParameters:         `export function f(used: string, unused: number) { return used; }`
+  //     -> TS6133 'unused' is declared but its value is never read. (exit 2)
+  //   noImplicitReturns:          `export function f(n: number) { if (n > 0) return "x"; }`
+  //     (no explicit return type — with one, TS2366 fires from strict mode
+  //     regardless of this flag, which would misattribute the failure)
+  //     -> TS7030 Not all code paths return a value. (exit 2)
+  //   noFallthroughCasesInSwitch: `switch (n) { case 1: log(); case 2: return "x"; default: return "y"; }`
+  //     -> TS7029 Fallthrough case in switch. (exit 2)
+  //   noUnusedLocals:             `export function f() { const dead = 1; return 2; }`
+  //     -> TS6133 'dead' is declared but its value is never read. (exit 2)
+  // All four confirmed green again once the fixture is removed.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": null,
+    "declaration": false,
+    "noEmit": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true
+  },
+  "include": ["src/**/*", "tests/**/*", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist", "assets"]
+}

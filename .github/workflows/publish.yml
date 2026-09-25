@@ -1,0 +1,62 @@
+name: Publish to npm
+
+# Trusted publishing via OIDC — sem token de vida longa e sem 2FA interativo.
+# Motivo: a conta usa security key como 2FA, que nao gera TOTP, e o `npm publish`
+# local exige OTP de 6 digitos. O npm recomenda este caminho (gh.io/npm-gat-bypass2fa-deprecation),
+# e a partir de jan/2027 tokens com bypass 2FA perdem o direito de publicar direto.
+
+on:
+  workflow_dispatch:          # botao "Run workflow" na aba Actions
+  push:
+    tags: ['v*']              # ou automatico ao empurrar uma tag v6.3.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write         # OBRIGATORIO para o OIDC — sem isto o npm recusa
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # npm >= 11.5.1 e o que sabe trocar o token OIDC por credencial de publish.
+      # Fixado em vez de `@latest`: `@latest` ja avancou para o major 12, que
+      # exige node ^22.22.2 e quebraria silenciosamente contra o minimo
+      # declarado em package.json (engines.node >=22.12.0). 11.20.0 e o ultimo
+      # patch do major 11 (node ^20.17.0 || >=22.9.0 — compativel).
+      - run: npm install -g npm@11.20.0
+
+      # Sem fallback `|| npm install`: publish precisa do lockfile exato, nao
+      # de "instala o que der". `npm ci` falhar aqui e sinal real de drift,
+      # nao algo para engolir silenciosamente antes de publicar.
+      - run: npm ci
+
+      # GATES REAIS — publicar sem eles ja aconteceu: o job so rodava build.
+      # `--if-present` some com o erro quando o script nao existe; aqui os
+      # scripts existem e a falha PRECISA derrubar o publish.
+      - name: typecheck
+        run: npx tsc --noEmit
+
+      - name: build
+        run: npm run build
+
+      - name: test
+        run: npx vitest run
+
+      # LICENSE precisa estar no tarball. `npm pack` obedece `files` + as regras
+      # implicitas do npm; se o arquivo sumir, o pacote publicado fica sem licenca.
+      - name: LICENSE no tarball
+        run: |
+          npm pack --silent >/dev/null
+          TGZ=$(ls -t nexos-cli-*.tgz | head -1)
+          tar -tzf "$TGZ" | grep -qx 'package/LICENSE' || {
+            echo "LICENSE ausente do tarball"; exit 1; }
+          rm -f "$TGZ"
+
+      # Sem NODE_AUTH_TOKEN: a credencial vem do OIDC, nao de segredo no repo
+      - run: npm publish

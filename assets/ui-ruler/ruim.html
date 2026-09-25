@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>régua — fixture ruim (10 violações, uma por critério)</title>
+<link rel="icon" href="data:," />
+<style>
+  :root { --cor-token: #205; --raio-token: 8px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: sans-serif; color: #111; background: #fff; }
+  header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: #222; color: #fff;
+    display: flex; align-items: center; padding: 0 16px; z-index: 10; }
+  main { padding-top: 60px; }
+
+  /* R1 — estouro horizontal: largura fixa maior que qualquer viewport da varredura (320-1920) */
+  .r1 { width: 3000px; height: 10px; background: #ccc; }
+
+  /* R2 — texto cortado sem elipse/line-clamp */
+  .r2 { width: 100px; height: 1.2em; overflow: hidden; white-space: nowrap; }
+
+  /* R3 — borda/sombra fora dos tokens: valor literal, não var(--token-do-root).
+     Declarado 2 níveis dentro de @layer > @supports de propósito: prova que
+     a régua acha a regra em QUALQUER profundidade de at-rule aninhada, não
+     só no nível raiz da folha. */
+  .r3 { padding: 8px; margin: 8px 0; }
+  @layer teste-regua {
+    @supports (display: block) {
+      .r3 { border: 3px solid #ff0000; }
+    }
+  }
+
+  /* R4 — anima propriedade fora de transform/opacity (sem @media prefers-reduced-motion) */
+  @keyframes desliza { from { left: 0; } to { left: 40px; } }
+  .r4 { position: relative; animation: desliza 1s linear infinite; width: 40px; height: 10px; background: #444; }
+
+  /* R7 — âncora sem scroll-margin-top: fica escondida sob o header fixo (60px) */
+  #destino { padding: 4px 0; }
+
+  .hero { background: #234; color: #fff; padding: 24px 16px; }
+  .hero img { display: block; max-width: 100%; }
+
+  .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(90vw, 400px); max-height: 80vh; overflow: auto; background: #fff; color: #111;
+    border: 1px solid var(--cor-token); border-radius: var(--raio-token); padding: 16px; }
+  .dialog[hidden] { display: none; }
+
+  /* R10 — alvo de toque abaixo de 24px em largura de celular */
+  .r10 { width: 16px; height: 16px; padding: 0; border: 0; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Fixture ruim</strong>
+</header>
+<main>
+  <div class="r1">R1: elemento largo demais para qualquer viewport da varredura</div>
+  <div class="r2">Este texto é longo o bastante para ser cortado sem aviso nenhum</div>
+  <div class="r3">R3: borda vermelha literal, fora do token do :root</div>
+  <div class="r4">R4</div>
+
+  <p><a href="#destino">ir para o destino (fica sob o cabeçalho)</a></p>
+  <h2 id="destino">Destino sem scroll-margin-top</h2>
+
+  <section class="hero" data-hero>
+    <h1>Hero</h1>
+    <!-- R8: <img> sem width/height — fonte de CLS -->
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="" />
+  </section>
+
+  <button type="button" data-modal-trigger>abrir modal</button>
+  <div id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-titulo" hidden>
+    <h2 id="dialog-titulo">Modal</h2>
+    <p>Conteúdo do modal.</p>
+    <button type="button" data-modal-close>fechar</button>
+  </div>
+
+  <button type="button" class="r10">x</button>
+</main>
+
+<script>
+  // R9 — erro de console proposital
+  console.error('erro proposital para R9');
+
+  // R5 — CLS: elemento do tamanho do viewport inserido depois do load, sem
+  // espaço reservado. Altura em vh (não px fixo) para o score continuar
+  // acima do limiar em QUALQUER largura/altura da varredura — um bloco fixo
+  // pequeno passa perto do limiar em janela alta e o teste vira instável.
+  setTimeout(() => {
+    const bloco = document.createElement('div');
+    bloco.style.cssText = 'width:100%;height:100vh;background:#ddd;';
+    bloco.textContent = 'bloco inserido tarde, empurra tudo abaixo dele';
+    document.querySelector('main').insertBefore(bloco, document.querySelector('.hero'));
+  }, 100);
+
+  // R6 — modal: NÃO trava a rolagem do fundo (única diferença deliberada
+  // contra limpo.html). Foco, Tab-trap, Esc e retorno de foco funcionam
+  // normalmente — só o fundo continua rolando com o modal aberto.
+  const LOCK_SCROLL = false;
+  (function setupModal() {
+    const trigger = document.querySelector('[data-modal-trigger]');
+    const dialog = document.getElementById('dialog');
+    const closeBtn = dialog.querySelector('[data-modal-close]');
+    function focusables() {
+      return [...dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter((el) => el.offsetParent !== null);
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (f.length === 0) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    function open() {
+      dialog.hidden = false;
+      if (LOCK_SCROLL) document.body.style.overflow = 'hidden';
+      focusables()[0]?.focus();
+      document.addEventListener('keydown', onKeydown);
+    }
+    function close() {
+      dialog.hidden = true;
+      if (LOCK_SCROLL) document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKeydown);
+      trigger.focus();
+    }
+    trigger.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+  })();
+</script>
+</body>
+</html>

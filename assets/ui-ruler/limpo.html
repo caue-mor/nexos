@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>régua — fixture limpo (0 violações)</title>
+<link rel="icon" href="data:," />
+<style>
+  :root { --cor-token: #205; --raio-token: 8px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: sans-serif; color: #111; background: #fff; }
+  header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: #222; color: #fff;
+    display: flex; align-items: center; padding: 0 16px; z-index: 10; }
+  main { padding-top: 60px; }
+
+  /* R1 corrigido: nunca excede a largura do viewport */
+  .r1 { width: min(100%, 600px); height: 10px; background: #ccc; }
+
+  /* R2 corrigido: corte sinalizado com elipse */
+  .r2 { width: 220px; height: 1.2em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+  /* R3 corrigido: só usa variáveis do :root — mesma profundidade aninhada de
+     ruim.html (@layer > @supports), para provar que a recursão não acusa
+     falso positivo quando o que está lá dentro já usa token. */
+  .r3 { padding: 8px; margin: 8px 0; }
+  @layer teste-regua {
+    @supports (display: block) {
+      .r3 { border: 3px solid var(--cor-token); border-radius: var(--raio-token); }
+    }
+  }
+
+  /* R4 corrigido: só transform, e respeita prefers-reduced-motion */
+  @keyframes desliza { from { transform: translateX(0); } to { transform: translateX(40px); } }
+  .r4 { position: relative; animation: desliza 1s linear infinite; width: 40px; height: 10px; background: #444; }
+  @media (prefers-reduced-motion: reduce) {
+    .r4 { animation: none; }
+  }
+
+  /* R7 corrigido: scroll-margin-top cobre a altura do header fixo (60px) */
+  #destino { padding: 4px 0; scroll-margin-top: 70px; }
+
+  .hero { background: #234; color: #fff; padding: 24px 16px; }
+  .hero img { display: block; max-width: 100%; height: auto; }
+
+  .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(90vw, 400px); max-height: 80vh; overflow: auto; background: #fff; color: #111;
+    border: 1px solid var(--cor-token); border-radius: var(--raio-token); padding: 16px; }
+  .dialog[hidden] { display: none; }
+
+  /* R10 corrigido: botão sem classe própria (abrir/fechar modal) também
+     precisa do mínimo de 24px — o padrão do navegador para <button> fica
+     em ~21px de altura, abaixo do limiar. */
+  button { min-height: 44px; min-width: 44px; padding: 8px 16px; font: inherit; }
+
+  /* R10 corrigido: alvo de toque confortavelmente acima do mínimo de 24px */
+  .r10 { width: 44px; height: 44px; padding: 0; border: 0; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Fixture limpo</strong>
+</header>
+<main>
+  <div class="r1">R1: cabe em qualquer viewport da varredura</div>
+  <div class="r2">Este texto é longo o bastante para ser cortado, mas com elipse visível</div>
+  <div class="r3">R3: borda usando token do :root</div>
+  <div class="r4">R4</div>
+
+  <p><a href="#destino">ir para o destino (não fica sob o cabeçalho)</a></p>
+  <h2 id="destino">Destino com scroll-margin-top</h2>
+
+  <section class="hero" data-hero>
+    <h1>Hero</h1>
+    <!-- R8: <img> com width/height explícitos -->
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="" width="800" height="400" />
+  </section>
+
+  <button type="button" data-modal-trigger>abrir modal</button>
+  <div id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-titulo" hidden>
+    <h2 id="dialog-titulo">Modal</h2>
+    <p>Conteúdo do modal.</p>
+    <button type="button" data-modal-close>fechar</button>
+  </div>
+
+  <button type="button" class="r10">x</button>
+</main>
+
+<script>
+  // R6 — modal: trava a rolagem do fundo enquanto aberto (única diferença
+  // deliberada contra ruim.html).
+  const LOCK_SCROLL = true;
+  (function setupModal() {
+    const trigger = document.querySelector('[data-modal-trigger]');
+    const dialog = document.getElementById('dialog');
+    const closeBtn = dialog.querySelector('[data-modal-close]');
+    function focusables() {
+      return [...dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter((el) => el.offsetParent !== null);
+    }
+    function onKeydown(e) {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Tab') {
+        const f = focusables();
+        if (f.length === 0) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    function open() {
+      dialog.hidden = false;
+      if (LOCK_SCROLL) document.body.style.overflow = 'hidden';
+      focusables()[0]?.focus();
+      document.addEventListener('keydown', onKeydown);
+    }
+    function close() {
+      dialog.hidden = true;
+      if (LOCK_SCROLL) document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKeydown);
+      trigger.focus();
+    }
+    trigger.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+  })();
+</script>
+</body>
+</html>

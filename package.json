@@ -1,0 +1,73 @@
+{
+  "name": "nexos-cli",
+  "version": "7.0.2",
+  "description": "NexOS — Project Intelligence OS for Claude Code. Durable project memory: state, decisions, checkpoints, evidence. Install once, use everywhere.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caue-mor/nexos.git"
+  },
+  "homepage": "https://github.com/caue-mor/nexos#readme",
+  "bugs": {
+    "url": "https://github.com/caue-mor/nexos/issues"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "nexos-cli": "bin/nexos.js",
+    "nexos": "bin/nexos.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "oxlint --deny-warnings src tests scripts bin console",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "typecheck:build": "tsc --noEmit",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
+    "typecheck:all": "tsc -p tsconfig.check.json",
+    "test": "vitest run",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "scan:local-secrets": "node scripts/scan-local-secrets.mjs",
+    "verify:secret-pattern-conformance": "npx tsx scripts/verify-secret-pattern-conformance.mts",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build && npm run scan:secrets && node scripts/scan-termos-privados.mjs && vitest run tests/package-artifact-contract.test.ts tests/scan-termos-privados.test.ts",
+    "console:css": "tailwindcss -i console/design.css -o console/tailwind.css --minify"
+  },
+  "keywords": [
+    "nexos",
+    "ai-agents",
+    "claude-code",
+    "project-brain",
+    "project-memory",
+    "checkpoints",
+    "memory"
+  ],
+  "author": "NexOS Team",
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "commander": "^15.0.0",
+    "fs-extra": "^11.4.1",
+    "picocolors": "^1.1.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^22.20.4",
+    "oxlint": "^1.85.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "assets",
+    "agent.yaml",
+    "console"
+  ]
+}

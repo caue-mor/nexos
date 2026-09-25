@@ -1,0 +1,103 @@
+/**
+ * SISTEMA DE DESIGN DO CONSOLE — entrada do Tailwind v4.
+ *
+ *   TOKEN É CONTRATO, VALOR SOLTO É DÍVIDA
+ *
+ * Toda cor, fonte, espaçamento e raio do painel nasce aqui. Um hexadecimal
+ * escrito direto num componente volta como inconsistência três telas depois,
+ * e ninguém lembra por que aquele verde é diferente do verde ao lado.
+ *
+ * O painel é um HTML ÚNICO aberto por `file://` — sem servidor, sem bundler
+ * no caminho do usuário. Por isso o CSS é gerado aqui em tempo de
+ * desenvolvimento (`npm run console:css`), versionado como
+ * `console/tailwind.css`, e o gerador só INJETA o arquivo pronto. Quem roda
+ * `nexos console` a partir do pacote npm não precisa de Tailwind instalado.
+ */
+@import "tailwindcss";
+
+/**
+ * De onde o Tailwind extrai as classes usadas. Sem isto ele gera CSS vazio:
+ * as classes moram no template E nos módulos .mjs que montam HTML em string.
+ */
+@source "./console-template.html";
+@source "./view-template.html";
+@source "./*.mjs";
+
+@theme {
+  /* ── Cores ─────────────────────────────────────────────────────────────
+     Direção B "JARVIS HUD" (scratchpad/ux/direcao-b-jarvis-hud.html),
+     aprovada pelo dono em 23/09. Terminal escuro de alto contraste, fósforo
+     verde como cor de instrumento; os três estados (aviso, perigo, info)
+     existem para SEVERIDADE, nunca para decorar. */
+  --color-bg: #060A08;
+  --color-surface: #0C1613;
+  --color-surface-2: #101F1A;
+  /* Translúcido de propósito: a mesma borda cai sobre `bg` e sobre
+     `surface` e continua pertencendo aos dois. Achatada sobre o fundo
+     padrão ela cai perto de #204029 — e só sobre ele: uma superfície mais
+     clara muda o resultado, que é exatamente por que a borda fica em rgba
+     em vez de um hex fixo. */
+  --color-line: rgba(124,255,158,.22);
+  --color-line-soft: #0F1C15;
+  --color-primary: #7CFF9E;
+  --color-primary-dim: #4C8F63;
+  --color-primary-glow: #7CFF9E;
+  --color-text: #DCEBE1;
+  --color-muted: #6E8577;
+  --color-warning: #FFB454;
+  --color-danger: #FF5C6C;
+  --color-info: #5FD8FF;
+
+  /* ── Tipografia ────────────────────────────────────────────────────────
+     Monoespaçada em tudo: é um painel de terminal, e número em fonte
+     proporcional dança de largura a cada atualização. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, "Cascadia Mono", monospace;
+
+  /* Escala fechada. Fora dela não existe tamanho — é o que impede o painel
+     de ter sete tamanhos quase iguais. */
+  --text-micro: 0.625rem;   /* 10px — rótulo de seção, sobrescrito */
+  --text-xs: 0.6875rem;     /* 11px — legenda, nota de rodapé */
+  --text-sm: 0.8125rem;     /* 13px — tabela, texto de apoio */
+  --text-base: 0.875rem;    /* 14px — corpo */
+  --text-lg: 1rem;          /* 16px — destaque de texto */
+  --text-num: 1.75rem;      /* 28px — número de métrica */
+  --text-num-lg: 2.375rem;  /* 38px — número em tela grande */
+  --text-display: 2.5rem;   /* 40px — nome do núcleo */
+
+  /* ── Forma ─────────────────────────────────────────────────────────────  */
+  --radius-card: 6px;
+  --radius-pill: 999px;
+
+  /* ── Sombra e luz ──────────────────────────────────────────────────────
+     Glow é sinal de foco/estado, nunca brilho ambiente. */
+  --shadow-card: 0 6px 20px -12px color-mix(in oklab, var(--color-primary) 60%, transparent);
+  --shadow-lift: 0 10px 30px -18px color-mix(in oklab, var(--color-primary) 70%, transparent);
+
+  /* ── Movimento ─────────────────────────────────────────────────────────  */
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/**
+ * Utilitários próprios, para o vocabulário do painel não virar uma fileira
+ * de dez classes repetida em vinte lugares.
+ */
+@utility painel-pad {
+  padding-inline: clamp(1rem, 2vw, 2.25rem);
+  padding-block: 1.5rem;
+}
+
+@utility cartao {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  transition: border-color 0.18s var(--ease-out-soft),
+              transform 0.18s var(--ease-out-soft),
+              box-shadow 0.18s var(--ease-out-soft);
+}
+
+@utility foco-anel {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

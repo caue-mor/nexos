@@ -1,0 +1,16 @@
+{
+  "_fonte": "web.dev/WCAG 2.2 — limiares citados no código que os usa, conferidos 2026-09-24",
+  "min_width": 320,
+  "max_width": 1920,
+  "step": 40,
+  "mobile_touch_target_max_width": 480,
+  "touch_target_min_px": 24,
+  "_touch_target_min_px_fonte": "WCAG 2.2 SC 2.5.8 Target Size (Minimum), nivel AA — 24x24px CSS",
+  "contrast_min_ratio": 4.5,
+  "_contrast_min_ratio_fonte": "WCAG 2.2 SC 1.4.3 Contrast (Minimum), nivel AA",
+  "cls_max": 0.1,
+  "_cls_max_fonte": "web.dev/cls — limiar \"good\" do Core Web Vitals",
+  "lcp_max_ms": 2500,
+  "_lcp_max_ms_fonte": "web.dev/lcp — limiar \"good\" do Core Web Vitals",
+  "modal_viewport": { "width": 390, "height": 844 }
+}

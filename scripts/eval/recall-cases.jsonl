@@ -1,0 +1,19 @@
+{"prompt":"por que você não me avisou que o contexto estava acabando?","expect":["nexos://decision/aviso-de-contexto-por-statusline"]}
+{"prompt":"você consultou a documentação da biblioteca antes de mexer no código?","expect":["nexos://decision/gatilho-ctx7-por-dependencia"]}
+{"prompt":"por que sumiram os arquivos relevantes que apareciam em todo prompt?","expect":["nexos://decision/arquivos-relevantes-sob-demanda"]}
+{"prompt":"é Capsule ou Store o nome que aparece para o usuário?","expect":["nexos://decision/nome-store-canonico"]}
+{"prompt":"como marco uma tarefa abandonada por decisão, que não falhou nem terminou?","expect":["nexos://decision/checkpoint-estado-substituido"]}
+{"prompt":"as mensagens do claude-peers às vezes não chegam, vale corrigir o broker?","expect":["nexos://decision/claude-peers-sem-patch-no-broker"]}
+{"prompt":"vale a pena rodar o semgrep no projeto?","expect":["nexos://decision/semgrep-nao-adotar"]}
+{"prompt":"e o stagehand para testar o console no navegador?","expect":["nexos://decision/stagehand-nao-adotar"]}
+{"prompt":"como descobrir quem chama uma função no código?","expect":["nexos://decision/ast-grep-para-chamadores"]}
+{"prompt":"como gerar slides em pdf da base de conhecimento?","expect":["nexos://decision/marp-cli-pdf-em-outputs"]}
+{"prompt":"como organizar o obsidian novo com raw, wiki e outputs?","expect":["nexos://decision/obsidian-vault-novo"]}
+{"prompt":"o jarvis pode mexer no backend sem avisar o main?","expect":["nexos://decision/divisao-de-frentes-e-revisao-do-visual-sdk"]}
+{"prompt":"o notebooklm não conecta, dá connection closed","expect":["nexos://gotcha/mcp-notebooklm-connection-closed-desde-o-boot-nunca-houve-login-o-servidor-morre-ao-iniciar","nexos://gotcha/notebooklm-connection-closed-e-falta-de-login-nao-defeito-de-pacote-nem-de-config-o-servidor-mcp-morre-no-startup-pedindo-storage-state"]}
+{"prompt":"gravei o próximo passo e a pergunta pendente para o dono sumiu","expect":["nexos://gotcha/nexos-state-next-resolve-em-silencio-a-decisao-humana-pendente"]}
+{"prompt":"posso confiar no resumo do webfetch sobre a doc do claude code?","expect":["nexos://gotcha/webfetch-responde-por-um-modelo-pequeno-com-pergunta-sugestiva-ele-inventou-o-campo-prompt-source-no-input-de-userpromptsubmit-e-inverteu-a-regra-hook-allow-vs-deny-rule-o-master-repassou-como-fato-verificado-a-dois-agentes"]}
+{"prompt":"devo instalar o cua-driver para automação de interface gráfica?","expect":["nexos://decision/cua-desligado-sem-binario"]}
+{"prompt":"receita de bolo de cenoura com cobertura de chocolate","expect":[]}
+{"prompt":"qual a capital da Austrália?","expect":[]}
+{"prompt":"bom dia","expect":[]}

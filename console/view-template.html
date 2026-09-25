@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXOS · mapa do código</title>
+<!-- vis-network 9.1.6 (Apache-2.0 / MIT) embutido de jarvis/vendor/, nao CDN:
+     o shell desktop do SDK e offline e sha384 do arquivo local bate com o
+     integrity que o graphify usava — mesmo binario, verificado. -->
+<script>/*__VENDOR__*/</script>
+<style>
+  /*   TOKEN COPIADO É TOKEN QUE VAI DIVERGIR
+   *
+   * Estas variáveis são cópia das do painel, não referência — os dois
+   * arquivos são HTML avulsos abertos por `file://`, sem folha comum. E já
+   * divergiram: `--dim` continuou em #6e7c70 depois que o painel subiu para
+   * #78867a por reprovar contraste (4,44 contra o mínimo de 4,5), e um
+   * #3a3a5e roxo de outro tema sobreviveu na borda do campo de busca no
+   * meio de uma paleta verde.
+   *
+   * Mudou cor aqui ou lá: mude nos dois, e confira `console/design.css`,
+   * que é onde os tokens são declarados de verdade.
+   */
+  /* Mesma paleta JARVIS HUD do painel (console-template.html) — os dois são
+     HTML avulsos sem folha comum, e design-tokens.test.mjs trava que os
+     valores continuem batendo. */
+  :root{--bg:#060A08;--panel:#0C1613;--line:rgba(124,255,158,.22);--fg:#DCEBE1;--dim:#6E8577;--warn:#FFB454;--primary:#7CFF9E}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,"Cascadia Mono",monospace;display:flex;height:100vh;overflow:hidden}
+  #graph{flex:1;min-width:0}
+  /*   LARGURA FIXA NÃO É LARGURA RESPONSÁVEL
+   *
+   * Medido a 3440px: a lateral em 330px fixos dava 302px de texto útil
+   * contra 3110px de grafo — proporção 9:1, com o texto explicativo
+   * quebrando a cada quatro palavras enquanto sobrava tela.
+   *
+   * `clamp` resolve os dois extremos com um valor só: 330px é o piso que o
+   * layout já usava e continua valendo no laptop; 22vw acompanha a tela; e
+   * 520px é o teto, porque painel lateral que cresce sem limite deixa de
+   * ser lateral. A 3440px dá 520px e o grafo fica com 2920px. */
+  #side{width:clamp(330px,22vw,520px);background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
+  .sec{padding:12px 14px;border-bottom:1px solid var(--line)}
+  h3{font-size:11px;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+  input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--fg);padding:7px 10px;border-radius:6px;outline:none;font-size:13px}
+  input:focus{border-color:var(--primary)}
+  .row{display:flex;justify-content:space-between;padding:2px 0}
+  .row b{color:#fff;font-variant-numeric:tabular-nums}
+  .chip{display:inline-flex;align-items:center;gap:6px;margin:2px 6px 2px 0;font-size:12px}
+  .sw{width:22px;height:0;border-top-width:3px;border-top-color:var(--fg)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;word-break:break-all}
+  .muted{color:var(--dim)}
+  .warn{color:var(--warn)}
+  ul{list-style:none;max-height:180px;overflow-y:auto}
+  li{padding:3px 0;cursor:pointer;border-radius:4px}
+  li:hover{background:var(--line)}
+  .tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;letter-spacing:.04em;border:1px solid currentColor}
+  .na{opacity:.55;font-style:italic}
+
+  /*   LATERAL FIXA COME A TELA INTEIRA QUANDO A TELA É ESTREITA
+   *
+   * MEDIDO no navegador a 390px de largura: `#side` tem 330px fixos e
+   * `#graph` é `flex:1`, então o grafo — o conteúdo PRINCIPAL desta tela —
+   * ficava com 60px. A biblioteca dimensiona o canvas pelo container, então
+   * o desenho virava uma tira vertical de 15% da largura, ilegível e sem
+   * como interagir.
+   *
+   * Empilhar é o certo aqui, não encolher: um grafo de 384 nós em 390px de
+   * largura precisa da largura inteira e de altura própria.
+   *
+   * Estas regras ficam no FIM do bloco de estilo de propósito — media query
+   * não acrescenta especificidade, e declarada antes das regras base ela
+   * perde por ordem (foi assim que a responsividade do painel principal
+   * ficou morta por um dia inteiro). Regra base nova entra ACIMA daqui.
+   */
+  @media (max-width: 860px){
+    body{flex-direction:column;overflow:auto}
+    #graph{flex:none;height:55vh;min-height:320px;width:100%}
+    #side{width:auto;border-left:none;border-top:1px solid var(--line);max-height:45vh}
+  }
+  @media (max-width: 480px){
+    #graph{height:48vh;min-height:260px}
+  }
+</style>
+</head>
+<body>
+<div id="graph"></div>
+<aside id="side">
+  <div class="sec" style="display:flex;justify-content:space-between;align-items:baseline">
+    <h3 style="margin:0">NEXOS</h3>
+    <a id="voltar" href="console.html" style="color:var(--primary);font-size:12px;display:inline-block;padding:4px 0;min-height:24px">← voltar ao painel</a>
+  </div>
+  <div class="sec"><h3>Mapa do projeto</h3>
+    <div class="muted" style="margin-bottom:8px;line-height:1.5">Cada ponto é um arquivo. As linhas mostram quem usa quem.
+    Os nomes aparecem ao passar o mouse; os arquivos mais usados já vêm com nome.</div><div id="stats"></div></div>
+  <div class="sec"><h3>Procurar arquivo</h3><input id="q" placeholder="digite parte do nome do arquivo…" autocomplete="off"><ul id="hits"></ul></div>
+  <div class="sec"><h3>Grau de certeza</h3><div id="prov"></div>
+    <div style="margin-top:8px" class="muted">A <b>cor</b> separa por pasta. O <b>traço da borda</b> mostra o quanto o sistema tem certeza daquela informação: linha cheia é confirmado, tracejado é deduzido, pontilhado é não resolvido.</div>
+  </div>
+  <div class="sec"><h3>O que esta tela ainda não mostra</h3><div id="na"></div></div>
+  <div class="sec"><h3>Arquivo selecionado</h3><div id="detail" class="muted">clique em um ponto do mapa</div></div>
+  <div class="sec"><h3>Arquivos isolados <span id="orphan-n" class="muted"></span></h3>
+    <div class="muted" style="margin-bottom:6px">Arquivos de código que nada usa e que não usam ninguém. São achado de verdade. Markdown, configuração e scripts não entram nesta conta: eles não participam do desenho de dependência, e contá-los aqui transformava 3 achados em 245 linhas de ruído.</div>
+    <ul id="orphans"></ul></div>
+</aside>
+<script>
+const DATA = /*__PAYLOAD__*/null;
+const $ = (id) => document.getElementById(id);
+
+$('stats').innerHTML = Object.entries({
+  'arquivos': DATA.stats.nodes, 'arquivos lidos': DATA.stats.filesScanned,
+  'ligações entre eles': DATA.stats.edges, 'isolados (achado real)': DATA.stats.orphans,
+  'não entram no desenho': DATA.stats.nonParticipating ?? 0, 'ligações não resolvidas': DATA.stats.unresolvedEdges,
+}).map(([k, v]) => `<div class="row"><span class="muted">${k}</span><b>${v}</b></div>`).join('')
+ + `<div class="row"><span class="muted">lido em</span><b class="mono">${DATA.generatedAt ?? '—'}</b></div>`;
+
+$('prov').innerHTML = [['FACT','confirmado','solid','1'],['INFERRED','deduzido','dashed','.85'],['UNKNOWN','não resolvido','dotted','.55']]
+  .map(([k,n,s,o]) => {
+    const cn = DATA.provenanceCounts.nodes[k] || 0, ce = DATA.provenanceCounts.edges[k] || 0;
+    const zero = cn === 0 && ce === 0;
+    return `<div class="row${zero ? ' na' : ''}"><span class="chip"><span class="sw" style="border-top-style:${s};opacity:${o}"></span>${n}</span>`
+      + `<b>${cn} nós · ${ce} arestas${zero ? ' — ausente neste grafo' : ''}</b></div>`;
+  }).join('');
+
+$('na').innerHTML = Object.entries(DATA.notImplemented)
+  .map(([k, why]) => `<div class="row"><span class="tag warn">${({STALE:"desatualização", FAILED:"falhas"})[k] ?? k}</span></div><div class="muted" style="margin:2px 0 8px">${why}</div>`).join('');
+
+$('orphan-n').textContent = `(${DATA.orphans.length})`;
+$('orphans').innerHTML = DATA.orphans.map((id) => `<li class="mono" data-id="${id}">${id}</li>`).join('');
+
+const nodesDS = new vis.DataSet(DATA.nodes);
+const edgesDS = new vis.DataSet(DATA.edges.map((e, i) => ({ id: i, ...e })));
+const network = new vis.Network($('graph'), { nodes: nodesDS, edges: edgesDS }, {
+  nodes: { shape: 'dot', scaling: { min: 4, max: 26 }, font: { color: '#e0e0e0', size: 11 } },
+  edges: { arrows: { to: { enabled: true, scaleFactor: .4 } }, color: { color: '#4a4a6e', highlight: '#F28E2B' }, smooth: false, width: .6 },
+  physics: { stabilization: { iterations: 140 }, barnesHut: { gravitationalConstant: -4200, springLength: 95, centralGravity: 0.55 } },
+  interaction: { hover: true, tooltipDelay: 120 },
+});
+
+function show(id) {
+  const d = DATA.detail[id];
+  if (!d) { $('detail').innerHTML = '<span class="muted">arquivo não encontrado</span>'; return; }
+  const lc = d.lastChanged.known
+    ? `<b class="mono">${d.lastChanged.commit.slice(0, 8)}</b> <span class="muted">${(d.lastChanged.at ?? '').slice(0, 10)}</span>`
+    : '<span class="na">não registrado</span>';  // nunca "nunca mudou"
+  const list = (arr, key) => arr.length
+    ? `<ul>${arr.slice(0, 40).map((x) => `<li class="mono" data-id="${x[key] ?? ''}">${x[key] ?? x.specifier} <span class="muted">${({FACT:"confirmado",INFERRED:"deduzido",UNKNOWN:"não resolvido"})[x.provenance] ?? x.provenance}</span></li>`).join('')}</ul>`
+    : '<div class="na">nenhuma</div>';
+  $('detail').innerHTML = `
+    <div class="mono" style="color:#fff;margin-bottom:6px">${d.path}</div>
+    <div class="row"><span class="muted">tipo</span><b>${d.kind === "file" ? "arquivo" : d.kind}</b></div>
+    <div class="row"><span class="muted">procedência</span><span class="tag">${({FACT:"confirmado",INFERRED:"deduzido",UNKNOWN:"não resolvido"})[d.provenance] ?? d.provenance}</span></div>
+    <div class="row"><span class="muted">fonte</span><b>${d.source ?? '—'}</b></div>
+    <div class="row"><span class="muted">última mudança</span><span>${lc}</span></div>
+    ${d.isOrphan ? '<div class="warn" style="margin-top:6px">ISOLADO — nada usa este arquivo e ele não usa nada</div>' : ''}
+    <h3 style="margin-top:12px">Usa (${d.dependencies.length})</h3>${list(d.dependencies, 'to')}
+    <h3 style="margin-top:10px">É usado por (${d.dependents.length})</h3>${list(d.dependents, 'from')}`;
+}
+
+// O nome aparece ao passar o mouse e some ao sair: legibilidade sem perder acesso.
+network.on('hoverNode', (p) => {
+  const n = nodesDS.get(p.node);
+  if (n && !n.label) nodesDS.update({ id: p.node, label: String(p.node).split('/').pop(), _tmp: true });
+});
+network.on('blurNode', (p) => {
+  const n = nodesDS.get(p.node);
+  if (n && n._tmp) nodesDS.update({ id: p.node, label: undefined, _tmp: false });
+});
+network.on('click', (p) => { if (p.nodes.length) { show(p.nodes[0]); $('q').value = ''; $('hits').innerHTML = ''; } });
+document.addEventListener('click', (ev) => {
+  const li = ev.target.closest('li[data-id]');
+  if (!li || !li.dataset.id) return;
+  show(li.dataset.id);
+  if (nodesDS.get(li.dataset.id)) { network.selectNodes([li.dataset.id]); network.focus(li.dataset.id, { scale: 1.1 }); }
+});
+$('q').addEventListener('input', (ev) => {
+  const t = ev.target.value.trim().toLowerCase();
+  $('hits').innerHTML = !t ? '' : Object.keys(DATA.detail)
+    .filter((id) => id.toLowerCase().includes(t)).slice(0, 25)
+    .map((id) => `<li class="mono" data-id="${id}">${id}</li>`).join('');
+});
+</script>
+<script>
+/**
+ *   VOLTAR TEM QUE CAIR ONDE A PESSOA ESTAVA
+ *
+ * O painel manda a aba de origem no endereço (`#volta=estrutura-do-codigo`)
+ * e o link de volta a devolve. Sem isso, ir ao mapa e voltar sempre caía na
+ * primeira aba, e reencontrar o lugar era trabalho do usuário.
+ *
+ * Endereço ausente ou fora do formato: o link continua valendo como estava,
+ * apontando para o painel. Degrada para o comportamento antigo, nunca para
+ * um link quebrado.
+ */
+(() => {
+  const m = /^#volta=([a-z0-9-]+)$/.exec(location.hash);
+  const a = document.getElementById('voltar');
+  if (m && a) a.href = `console.html#${m[1]}`;
+})();
+</script>
+</body>
+</html>

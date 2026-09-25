@@ -224,6 +224,15 @@ export const CAMPOS_UTEIS = [
   "subject",
   "model",
   "practice",
+  /**
+   * `Research` também não tem `title`: `question` faz o papel dele e
+   * `findings` carrega a afirmação. Sem os dois, `nexos research` publicava e
+   * `memory --search`/recall descartavam como NO_SIGNAL (medido em 25/09 com
+   * `rsh_01M3CR1Q615GX7C71G9PAEQCCM`). `sources` é array e `contentOf` já o
+   * descarta, então as fontes nunca viajam no pack.
+   */
+  "question",
+  "findings",
 ] as const;
 
 /**

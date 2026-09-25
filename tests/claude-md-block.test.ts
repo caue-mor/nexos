@@ -38,6 +38,22 @@ describe("inspectClaudeMdBlock — estados", () => {
     }
   });
 
+  /**
+   * MEDIDO 25/09 nas 25 versões publicadas no npm: 1.0.0–6.3.2 gravavam o
+   * CLAUDE.md global com um destes três títulos. Fora da lista, o upgrade
+   * anexava o bloco novo embaixo das ~670 linhas antigas — instruções
+   * contraditórias em dobro (relato da comunidade, 6.3.1 → 7.0.3).
+   */
+  it("CLAUDE.md global das versões 1.x–6.x → legacy_unmarked", () => {
+    for (const titulo of [
+      "# NexOS v6.0 — Intelligent Software House (Kernel Edition)",
+      "# NexOS v7.0 — Intelligent Software House (Specialist Edition)",
+      "# NexOS v7.1 — Intelligent Software House (Harness Engineering Edition)",
+    ]) {
+      expect(inspectClaudeMdBlock(`${titulo}\n\n## REGRA SUPREMA\n`, BODY_V1).state, titulo).toBe("legacy_unmarked");
+    }
+  });
+
   it("título do projeto que só COMEÇA como o do template → absent (caso real do nexos-cli, 23/09)", () => {
     const proprio = "# NexOS — Project Brain + Capability Layer for Claude Code\n\n## Product identity\n";
     expect(inspectClaudeMdBlock(proprio, BODY_V1).state).toBe("absent");

@@ -661,6 +661,70 @@ describe("N2 · os três kinds de memória são recuperáveis", () => {
 });
 
 /**
+ * `SAVED != RETRIEVABLE`, de novo, na família `Research`: sem `title`, com a
+ * afirmação em `question`/`findings`, que `CAMPOS_UTEIS` não conhecia. Medido
+ * em 2026-09-25: `nexos research` publicou `rsh_01M3CR1Q615GX7C71G9PAEQCCM`
+ * sobre FastMCP e `nexos memory --search fastmcp` devolveu só gotchas.
+ */
+describe("N2 · pesquisa publicada é recuperável", () => {
+  const researchRec = (pid: string): CapsuleRecord =>
+    ({
+      schema_version: 1,
+      id: newRecordId("Research"),
+      project_id: pid,
+      family: "Research",
+      scope: "project",
+      origin: "agent",
+      provenance: { source_ref: "nexos://research/fastmcp", producer_id: "nexos-research", submitted_at: NOW },
+      lifecycle: "immutable",
+      portability: "portable",
+      regenerable: false,
+      admission: { status: "admitted", approved_by: "policy:nexos-research", approved_at: NOW },
+      sensitivity: { classification: "internal", checked_at: NOW, checker_version: "nexos-research-1" },
+      created_at: NOW,
+      version: 1,
+      content: {
+        question: "o fastmcp serve para o gateway do hermes",
+        findings: "fastmcp junta varios servidores mcp atras de um endereco com create_proxy e mount",
+        sources: [
+          {
+            source_url: "https://gofastmcp.com/llms-full.txt",
+            source_class: "LIBRARY_DOCS",
+            volatility: "CURRENT",
+            accessed_at: NOW,
+            published_at: null,
+            claim: "create_proxy e mount",
+            confidence: "OFFICIAL",
+          },
+        ],
+        observed_at: NOW,
+      },
+    }) as unknown as CapsuleRecord;
+
+  it("casa pela pergunta ou pelo achado e viaja só com os dois", async () => {
+    await publishCanonical(root, researchRec(projectId));
+
+    for (const intent of ["gateway do hermes", "juntar servidores mcp com create_proxy"]) {
+      const r = await assembleContext({ projectRoot: root, intent });
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const item = r.pack.items.find((i) => i.sourceRef === "nexos://research/fastmcp");
+      expect(item, `"${intent}" deveria achar a pesquisa`).toBeDefined();
+      expect(Object.keys(item!.fields).sort()).toEqual(["findings", "question"]);
+    }
+  });
+
+  it("assunto sem relação não acha a pesquisa", async () => {
+    await publishCanonical(root, researchRec(projectId));
+
+    const r = await assembleContext({ projectRoot: root, intent: "receita de bolo de cenoura" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.pack.items.filter((i) => i.matchedTerms.length > 0)).toEqual([]);
+  });
+});
+
+/**
  * global_goal chega ao pack (Fatia 1/Passo 3, commit 1).
  *
  * O record sempre teve o campo (`ProjectStateSchema`, `capsule/schemas.ts`) e

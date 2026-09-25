@@ -136,6 +136,7 @@ function describeOpPath(op: PlanOp): string {
     case "rules":
     case "hooks":
     case "statusline":
+    case "commands":
       return `${op.component}/${op.path}`;
     default:
       return op.path;
@@ -172,15 +173,17 @@ function printPlan(plan: InstallPlan): void {
 }
 
 /**
- * O que o NexOS gravou e o pacote não tem mais. NUNCA remove — a remoção em
- * `~/.claude` é decisão do dono; o que não pode continuar é o silêncio.
+ * O que o NexOS gravou, o pacote não tem mais e o plano NÃO remove: o
+ * intacto já aparece como `remove` acima (com backup); aqui fica o resto.
  */
 function printPackageOrphans(plan: InstallPlan): void {
-  if (plan.packageOrphans.length === 0) return;
+  const removidos = new Set(plan.ops.filter((op) => op.action === "remove").map(describeOpPath));
+  const mantidos = plan.packageOrphans.filter((o) => !removidos.has(`${o.component}/${o.path}`));
+  if (mantidos.length === 0) return;
   console.log("");
-  console.log(pc.yellow("Instalado pelo NexOS e fora do pacote atual (nada foi removido):"));
-  for (const orphan of plan.packageOrphans) {
-    const nota = orphan.status === "untouched" ? "idêntico ao instalado — remover é seguro" : "editado no host — preservar";
+  console.log(pc.yellow("Instalado pelo NexOS, fora do pacote atual e preservado:"));
+  for (const orphan of mantidos) {
+    const nota = orphan.status === "modified" ? "editado no host" : "ainda chamado pelo settings.json";
     console.log(`  ${orphan.component}/${orphan.path}  ${pc.dim(nota)}`);
   }
   console.log(pc.dim(`  remova o que quiser com: rm -rf ~/.claude/<caminho acima>`));

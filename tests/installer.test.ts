@@ -10,9 +10,34 @@ import {
   projectHooksSettings,
   projectStatusLineSettings,
   decidePackageOrphans,
+  expandirHomeNoJson,
 } from "../src/lib/installer.js";
 
 const TEST_DIR = path.join(os.tmpdir(), `nexos-test-${Date.now()}`);
+
+// ─── expandirHomeNoJson — $HOME do asset vira string JSON e argumento de shell ───
+
+describe("expandirHomeNoJson", () => {
+  const raw = fs.readFileSync(path.join(__dirname, "..", "assets", "settings.json"), "utf-8");
+
+  it("home do Windows (relato da comunidade, 7.0.3): parse não quebra e o caminho sai com barra normal", () => {
+    const s = JSON.parse(expandirHomeNoJson(raw, "C:\\Users\\fulano", "\\")) as {
+      hooks: Record<string, { hooks: { command: string }[] }[]>;
+    };
+    const comandos = Object.values(s.hooks)
+      .flat()
+      .flatMap((g) => g.hooks.map((h) => h.command));
+    expect(comandos.length).toBeGreaterThan(0);
+    for (const c of comandos) expect(c, c).not.toContain("\\");
+    expect(comandos.some((c) => c.includes("C:/Users/fulano/.claude/hooks/"))).toBe(true);
+  });
+
+  it("home com padrão de replace ($&) e aspas sai literal", () => {
+    expect(JSON.parse(expandirHomeNoJson('{"c":"node $HOME/x"}', '/Users/a$&"b', "/"))).toEqual({
+      c: 'node /Users/a$&"b/x',
+    });
+  });
+});
 
 // ─── projectHooksSettings — projeção pura de hooks (P1.3i) ─────────────────
 
@@ -167,6 +192,17 @@ describe("projectStatusLineSettings", () => {
     const existing = { type: "command", command: '"/opt/old/node" "/Users/x/.claude/statusline/nexos-statusline.mjs"', padding: 3 };
     const result = projectStatusLineSettings(existing, NEXOS_COMMAND);
     expect(result).toEqual({ statusLine: { type: "command", command: NEXOS_COMMAND }, conflict: null });
+  });
+
+  /** 21 das 25 versões publicadas (1.0.2–6.3.2) gravavam este comando — medido 25/09. */
+  it("statusLine das versões 1.x–6.x (hooks/nexos-status-line.sh) é do NexOS — troca pelo renderer atual", () => {
+    for (const command of [
+      "bash /Users/x/.claude/hooks/nexos-status-line.sh",
+      "bash C:\\Users\\x\\.claude\\hooks\\nexos-status-line.sh",
+    ]) {
+      const result = projectStatusLineSettings({ type: "command", command }, NEXOS_COMMAND);
+      expect(result, command).toEqual({ statusLine: { type: "command", command: NEXOS_COMMAND }, conflict: null });
+    }
   });
 
   it("statusLine de outro dono (comando não referencia o renderer NexOS) — PRESERVA byte a byte, reporta conflito", () => {

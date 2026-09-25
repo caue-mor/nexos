@@ -22,7 +22,16 @@ import { planClaudeMdBlock } from "./claude-md-block.js";
  */
 
 type AssetComponent = keyof typeof INSTALL_TARGETS;
-export type PlanComponent = AssetComponent | "claude-md" | "memory" | "settings" | "version" | "hashes";
+/** Componente que o NexOS parou de distribuir — só recebe `remove` de órfão provado pelo manifesto. */
+type RetiredComponent = keyof typeof RETIRED_INSTALL_TARGETS;
+type FileComponent = AssetComponent | RetiredComponent;
+export type PlanComponent = FileComponent | "claude-md" | "memory" | "settings" | "version" | "hashes";
+
+const RAIZ_DO_COMPONENTE: Readonly<Record<FileComponent, string>> = { ...INSTALL_TARGETS, ...RETIRED_INSTALL_TARGETS };
+
+function isFileComponent(component: string): component is FileComponent {
+  return Object.prototype.hasOwnProperty.call(RAIZ_DO_COMPONENTE, component);
+}
 export type PlanAction = "create" | "update" | "unchanged" | "preserve" | "remove";
 
 export interface PlanOp {
@@ -37,13 +46,9 @@ export interface InstallPlan {
   /** Arquivos locais em `agents/` que não vieram do pacote — nunca removidos, só reportados. */
   readonly preservedAgents: readonly string[];
   /**
-   * O que o NexOS gravou em `~/.claude` e SAIU do pacote — skills/rules/hooks.
-   * Agents já são podados (`planAgentCleanup`); para os demais a remoção é
-   * decisão do dono (condição registrada em
-   * nexos://decision/workforce-superpowers-portar-nao-habilitar), então aqui
-   * só REPORTA. Silêncio era o problema: `development--testing-patterns` saiu
-   * do pacote por colidir com o TDD e seguia instalado, ativável por
-   * description, sem uma linha no plano.
+   * O que o NexOS gravou em `~/.claude` e SAIU do pacote — skills/rules/hooks/
+   * commands. Os intactos viram `remove` no plano (dono, 25/09); os que ficam
+   * — editados no host ou citados pelo settings.json final — só são reportados.
    */
   readonly packageOrphans: readonly PackageOrphan[];
   /** Componentes aposentados que seguem povoados no host — suspeita, nunca autoria provada. */
@@ -81,6 +86,7 @@ const COMPONENT_ORDER: readonly PlanComponent[] = [
   "rules",
   "hooks",
   "statusline",
+  "commands",
   "claude-md",
   "memory",
   "settings",
@@ -111,10 +117,6 @@ export async function computeInstallPlan(options: ComputePlanOptions = {}): Prom
   const cleanup = await planAgentCleanup(previousManifest);
   ops.push(...cleanup.ops);
 
-  const packageOrphans = await coletarPackageOrphans(previousManifest, futureManifest);
-  aplicarLapides(futureManifest, previousManifest, packageOrphans);
-  const retiredResidue = await coletarRetiredResidue();
-
   const claudeMd = await planClaudeMd();
   ops.push(claudeMd.op);
 
@@ -123,6 +125,28 @@ export async function computeInstallPlan(options: ComputePlanOptions = {}): Prom
 
   const settings = await planSettings();
   ops.push(settings.op);
+
+  /**
+   * Órfão intacto sai — decisão do dono em 25/09 (upgrade 6.3.1 deixava 2.318
+   * arquivos, 1.822 de skills ainda carregadas). O hash prova que é nosso e
+   * que ninguém mexeu; `backupTargetsOf` guarda antes. Fica o editado no host
+   * e o que o settings.json final ainda chama: apagar script de hook ligado à
+   * mão faria o hook falhar em todo evento.
+   */
+  const packageOrphans = await coletarPackageOrphans(previousManifest, futureManifest);
+  const removidos: string[] = [];
+  const mantidos: PackageOrphan[] = [];
+  for (const orphan of packageOrphans) {
+    const citado = settings.referencias.includes(`.claude/${orphan.component}/${orphan.path}`);
+    if (orphan.status === "untouched" && !citado && isFileComponent(orphan.component)) {
+      ops.push({ component: orphan.component, path: orphan.path, action: "remove" });
+      removidos.push(path.join(RAIZ_DO_COMPONENTE[orphan.component], orphan.path));
+    } else {
+      mantidos.push(orphan);
+    }
+  }
+  aplicarLapides(futureManifest, previousManifest, mantidos);
+  const retiredResidue = await coletarRetiredResidue(RETIRED_INSTALL_TARGETS, new Set(removidos));
 
   const version = await planVersion();
   ops.push(version.op);
@@ -156,6 +180,7 @@ export async function applyInstallPlan(plan: InstallPlan): Promise<void> {
       case "rules":
       case "hooks":
       case "statusline":
+      case "commands":
         await applyAssetOp(op.component, op);
         break;
       case "claude-md":
@@ -229,7 +254,8 @@ export function backupTargetsOf(plan: InstallPlan): string[] {
       case "rules":
       case "hooks":
       case "statusline":
-        targets.push(path.join(INSTALL_TARGETS[op.component], op.path));
+      case "commands":
+        targets.push(path.join(RAIZ_DO_COMPONENTE[op.component], op.path));
         break;
       case "claude-md":
         targets.push(path.join(CLAUDE_DIR, "CLAUDE.md"));
@@ -312,19 +338,25 @@ export async function assertNoSymlinkTraversal(root: string, destino: string): P
   }
 }
 
-async function applyAssetOp(component: AssetComponent, op: PlanOp): Promise<void> {
-  const destFile = path.join(INSTALL_TARGETS[component], op.path);
+async function applyAssetOp(component: FileComponent, op: PlanOp): Promise<void> {
+  const raiz = RAIZ_DO_COMPONENTE[component];
+  const destFile = path.join(raiz, op.path);
   /**
    * ANTES de `ensureDir`: é o `ensureDir` que materializa o caminho através do
    * link, e depois dele a vítima já foi criada. A guarda cobre também o
    * `remove` — apagar através de um link apaga fora da raiz.
    */
-  await assertNoSymlinkTraversal(INSTALL_TARGETS[component], destFile);
+  await assertNoSymlinkTraversal(raiz, destFile);
   if (isWrite(op.action)) {
     await fs.ensureDir(path.dirname(destFile));
     await fs.copy(path.join(ASSETS_DIR, component, op.path), destFile, { overwrite: true });
   } else if (op.action === "remove") {
     await fs.remove(destFile);
+    // Diretório que a remoção esvaziou (skills/<nome>/references/) sai junto — até a raiz, nunca ela.
+    for (let dir = path.dirname(destFile); dir.startsWith(raiz + path.sep); dir = path.dirname(dir)) {
+      if ((await fs.readdir(dir)).length > 0) break;
+      await fs.rmdir(dir);
+    }
   }
 }
 
@@ -432,9 +464,10 @@ export interface RetiredResidue {
   readonly fileCount: number;
 }
 
-/** Conta arquivos (recursivo) de cada alvo aposentado que ainda existe no host. */
+/** Conta arquivos (recursivo) de cada alvo aposentado que ainda existe no host — fora o que o plano já remove. */
 export async function coletarRetiredResidue(
-  targets: Record<string, string> = RETIRED_INSTALL_TARGETS
+  targets: Record<string, string> = RETIRED_INSTALL_TARGETS,
+  removidos: ReadonlySet<string> = new Set()
 ): Promise<readonly RetiredResidue[]> {
   const out: RetiredResidue[] = [];
   for (const [component, dir] of Object.entries(targets)) {
@@ -444,7 +477,7 @@ export async function coletarRetiredResidue(
       for (const entry of await fs.readdir(d, { withFileTypes: true })) {
         const full = path.join(d, entry.name);
         if (entry.isDirectory()) await walk(full);
-        else fileCount += 1;
+        else if (!removidos.has(full)) fileCount += 1;
       }
     };
     await walk(dir);
@@ -704,7 +737,8 @@ function mesmoConjunto(a: readonly unknown[], b: readonly unknown[]): boolean {
 // do ÚNICO PlanOp de `settings.json`.
 
 /** Substring estável do comando do renderer NexOS — independente de `$HOME`/plataforma (mesmo truque de `NEXOS_HOOK_COMMAND_PATTERN`). */
-const NEXOS_STATUSLINE_COMMAND_PATTERN = /\.claude[\\/]statusline[\\/]nexos-statusline\.mjs/;
+const NEXOS_STATUSLINE_COMMAND_PATTERN =
+  /\.claude[\\/](?:statusline[\\/]nexos-statusline\.mjs|hooks[\\/]nexos-status-line\.sh)/; // .sh: 1.0.2–6.3.2
 
 function isNexosOwnedStatusLineCommand(command: unknown): boolean {
   return typeof command === "string" && NEXOS_STATUSLINE_COMMAND_PATTERN.test(command);
@@ -851,10 +885,27 @@ function buildStatusLineCommand(): string {
   return `${buildContextTapCommand()} | node ${quoteForShellCommand(rendererPath)}`;
 }
 
+/**
+ * `$HOME` do asset vira texto DENTRO de string JSON e, depois, argumento sem
+ * aspas num comando de hook — que roda em Git Bash no Windows, ou PowerShell
+ * sem ele (code.claude.com/docs/en/hooks.md). MEDIDO 25/09 (relato da
+ * comunidade, Windows, 7.0.3): `C:\Users\...` cru virava o escape JSON
+ * inválido `\U` e o install abortava no parse. Barra normal serve a node, Git
+ * Bash e PowerShell; o escape JSON cobre aspas; o replacer em função impede
+ * `$&`/`$$` do home de virar padrão de substituição.
+ * ponytail: home com espaço ainda quebra o comando sem aspas em qualquer plataforma; aspas no asset quando alguém medir esse caso.
+ */
+export function expandirHomeNoJson(raw: string, homeDir: string, sep: string = path.sep): string {
+  const home = JSON.stringify(homeDir.split(sep).join("/")).slice(1, -1);
+  return raw.replace(/\$HOME/g, () => home);
+}
+
 async function planSettings(): Promise<{
   op: PlanOp;
   content: Record<string, unknown> | null;
   statusLineConflict: string | null;
+  /** settings.json FINAL como texto, barra normal — quem apaga arquivo confere antes se algo ainda o chama. */
+  referencias: string;
 }> {
   const label = "settings.json";
   const src = path.join(ASSETS_DIR, "settings.json");
@@ -866,7 +917,7 @@ async function planSettings(): Promise<{
   let assetHooks: Record<string, unknown> = {};
   if (await fs.pathExists(src)) {
     const raw = await fs.readFile(src, "utf-8");
-    const assetSettings = JSON.parse(raw.replace(/\$HOME/g, homeDir)) as Record<string, unknown>;
+    const assetSettings = JSON.parse(expandirHomeNoJson(raw, homeDir)) as Record<string, unknown>;
     const assetHooksRaw = assetSettings.hooks;
     if (typeof assetHooksRaw !== "object" || assetHooksRaw === null || Array.isArray(assetHooksRaw)) {
       throw new Error("assets/settings.json: campo \"hooks\" malformado no pacote");
@@ -897,12 +948,14 @@ async function planSettings(): Promise<{
     buildContextTapCommand()
   );
   const projected = { ...projectedHooks, statusLine: statusLineProjection.statusLine };
+  const referencias = JSON.stringify(projected).replace(/\\\\/g, "/");
 
   if (existing === null) {
     return {
       op: { component: "settings", path: label, action: "create" },
       content: projected,
       statusLineConflict: statusLineProjection.conflict,
+      referencias,
     };
   }
   if (deepEqualJsonValue(existing, projected)) {
@@ -910,12 +963,14 @@ async function planSettings(): Promise<{
       op: { component: "settings", path: label, action: "unchanged" },
       content: null,
       statusLineConflict: statusLineProjection.conflict,
+      referencias,
     };
   }
   return {
     op: { component: "settings", path: label, action: "update" },
     content: projected,
     statusLineConflict: statusLineProjection.conflict,
+      referencias,
   };
 }
 

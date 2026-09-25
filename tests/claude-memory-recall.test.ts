@@ -18,6 +18,7 @@ import os from "node:os";
 import { init } from "../src/commands/init.js";
 import { state } from "../src/commands/state.js";
 import { gotcha } from "../src/commands/gotcha.js";
+import { research } from "../src/commands/research.js";
 import { publishContextDecision } from "../src/commands/decision.js";
 import { resolveProject } from "../src/lib/project-resolver.js";
 import { assembleContext, termosDe } from "../src/lib/context-assembler.js";
@@ -746,5 +747,58 @@ describe("mensagem que não é pedido do usuário", () => {
       );
       expect(result).toEqual({ state: "SKIPPED", reason: "mensagem de tarefa/canal/subagente — recall é para o pedido do usuário" });
     }
+  });
+});
+
+// ─── R · pesquisa publicada chega ao recall com a pergunta como título ──────
+
+describe("R · pesquisa publicada no recall", () => {
+  it("mostra a pergunta como título e o achado como corpo, nunca o source_ref como título", async () => {
+    const root = await novoProjeto("r");
+    await silencioso(() =>
+      research({
+        cwd: root,
+        question: "O fastmcp serve para o gateway do hermes?",
+        findings: "fastmcp junta varios servidores mcp atras de um endereco com create_proxy e mount",
+        source: ["https://gofastmcp.com/llms-full.txt"],
+        claim: ["create_proxy e mount"],
+      })
+    );
+
+    const result = await chamar(root, "sess-r", "vale usar o fastmcp no gateway do hermes?");
+    expect(result.state).toBe("RECALL");
+    if (result.state !== "RECALL") return;
+    expect(result.text).toContain("- O fastmcp serve para o gateway do hermes?");
+    expect(result.text).toContain("  findings: fastmcp junta varios servidores mcp");
+    expect(result.text).not.toMatch(/^- nexos:\/\/research\//m);
+  });
+
+  /**
+   * Medido em 25/09: "preciso de uma vps para o claude code trabalhar sem o mac
+   * ligado?" achava a pesquisa com score 5 em `memory --search`, e o recall
+   * injetava 3 gotchas de score 3 — o desempate começa por frase no TÍTULO, e
+   * sem `title` a pesquisa perdia as duas primeiras camadas para qualquer
+   * gotcha com "Claude Code" no título.
+   */
+  it("pesquisa com mais termos vence gotcha que só tem a frase no título", async () => {
+    const root = await novoProjeto("r2");
+    await silencioso(() =>
+      gotcha({ cwd: root, title: "O terminal do Claude Code nao tem tty controlador", rule: "promover fora da sessao" })
+    );
+    await silencioso(() =>
+      research({
+        cwd: root,
+        question: "O Claude Code roda sem a maquina? Precisa de vps?",
+        findings: "routines rodam na nuvem da anthropic sem o mac ligado",
+        source: ["https://code.claude.com/docs/en/scheduled-tasks.md"],
+        claim: ["tabela machine on"],
+      })
+    );
+
+    const result = await chamar(root, "sess-r2", "preciso de vps para o claude code rodar sem o mac ligado?");
+    expect(result.state).toBe("RECALL");
+    if (result.state !== "RECALL") return;
+    const primeiro = result.text.split("\n").find((l) => l.startsWith("- "));
+    expect(primeiro).toBe("- O Claude Code roda sem a maquina? Precisa de vps?");
   });
 });

@@ -1,5 +1,38 @@
 # Changelog
 
+## 7.0.5 (2026-09-25) — install no Windows e upgrade limpo a partir da 6.x
+
+Reproduzido a partir de um relato da comunidade (Windows, 6.3.1 → 7.0.3), instalando a
+6.3.1 publicada num HOME isolado e rodando o install novo por cima.
+
+### Fixed
+- **`nexos install` no Windows** — o `$HOME` do `settings.json` do pacote entrava cru no
+  texto JSON: `C:\Users\...` virava o escape inválido `\U` e o install abortava antes de
+  escrever qualquer coisa. Agora o caminho entra escapado e com barra normal
+  (`C:/Users/...`), que funciona no Git Bash e no PowerShell, onde os hooks rodam.
+- **`CLAUDE.md` duplicado no upgrade da 6.x** — o `CLAUDE.md` global das versões 1.0.0 a
+  6.3.2 não era reconhecido como seção NexOS antiga, e o bloco novo era anexado embaixo das
+  ~670 linhas antigas, com instruções que se contradiziam. Agora ele fica intacto e o
+  install avisa para remover a seção antiga, o que libera a inserção do bloco novo.
+- **statusLine da 6.x** — `hooks/nexos-status-line.sh`, gravada por 21 versões, era tratada
+  como de outro dono e continuava rodando depois do upgrade. Agora é trocada pela atual.
+- **`nexos memory` fora de projeto** — `--review` dizia "Nenhum candidato esperando
+  decisão" numa pasta sem Store. Agora diz que a pasta não tem Store e sai com erro; em
+  `--json`, o mesmo `STORE_ILEGIVEL` de `state` e `gotcha`.
+- **pesquisa publicada volta ao recall** — `nexos research` publicava e nem
+  `memory --search` nem a memória por prompt a devolviam. Agora a pergunta conta como
+  título e o achado como corpo, também no desempate.
+
+### Changed
+- **`nexos install` remove o que sobrou de versão anterior** — arquivo que uma versão
+  anterior instalou, que saiu do pacote e continua idêntico ao que o NexOS gravou (hash do
+  manifesto) é removido, com backup em `~/.claude/backups/pre-nexos-install-<data>/`. Fica
+  e é listado o que você editou e o que o seu `settings.json` ainda chama. No upgrade da
+  6.3.1: `~/.claude` de 2.444 para 192 arquivos (1.886 → 106 em skills). `--dry-run` mostra
+  a lista antes.
+- **regra de pesquisa** — pesquisa com fonte vai ao Store por `nexos research`, que publica
+  direto e entra no recall; `nexos memory --fact` fica para afirmação sobre o projeto.
+
 ## 7.0.3 (2026-09-25) — mapa do projeto sem fatos repetidos
 
 ### Fixed

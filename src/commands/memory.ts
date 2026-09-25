@@ -46,6 +46,7 @@ import {
   type MemoryScope,
 } from "../lib/capsule/memory-promotion.js";
 import { subjectRef, type CapsuleRecord } from "../lib/capsule/schemas.js";
+import { falhaJson } from "../lib/capsule/record-json.js";
 import { lerRecuperacoes, retrievalLogPath, type RetrievalLine } from "../lib/retrieval-log.js";
 import {
   loadGoldenSet,
@@ -124,6 +125,23 @@ export async function memory(options: MemoryOptions = {}): Promise<void> {
 
   if (options.eval !== undefined) {
     await avaliar(root, options);
+    return;
+  }
+  /**
+   * PASTA SEM STORE != STORE VAZIO. `resolveCommandRoot` devolve o cwd quando
+   * não acha manifest, e `lerRecords` lê isso como zero records: fora de
+   * projeto, `--review` afirmava "Nenhum candidato esperando decisão" com
+   * exit 0. `--eval` fica acima porque o retriever externo não precisa de Store.
+   */
+  const identidade = await resolveProject({ cwd: root }).catch(() => undefined);
+  if (identidade?.identitySource !== "manifest") {
+    if (options.json === true) {
+      falhaJson("STORE_ILEGIVEL", ["MANIFEST_UNREADABLE"]);
+      return;
+    }
+    console.log(pc.yellow("  ! este projeto não tem Store."));
+    console.log(pc.dim("    rode `nexos init` primeiro — memória de projeto exige identidade canônica."));
+    process.exitCode = 1;
     return;
   }
   if (options.review === true) {

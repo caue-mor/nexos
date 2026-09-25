@@ -31,8 +31,12 @@ Pesquisa que rendeu conhecimento durável termina em DOIS lugares:
    Frontmatter: `tipo`, `fonte`, `capturado_em`, `versao_host`, `autor`,
    `status`. Fonte bruta arquivada ao lado quando existir (`llms.txt`, dump de
    API, export) — o bruto é o que permite diff entre capturas.
-2. **Store**, como candidato: `nexos memory --fact "<achado>" --evidence "<comando e saída>"`.
-   Promover é do humano.
+2. **Store**, como pesquisa publicada: `nexos research --question "<pergunta>"
+   --findings "<achado>" --source <url> --claim "<o que a fonte sustenta>"`, uma
+   `--claim` por `--source`. Pesquisa entra no recall e em `nexos memory --search`
+   sem esperar promoção. `nexos memory --fact` fica para afirmação sobre ESTE
+   projeto, que precisa do humano para virar memória: candidato não aparece na
+   busca até ser promovido.
 
 Captura sem data é captura sem validade: o Claude Code muda toda semana, e
 comparar duas capturas é o que mostra o que a doc ganhou ou perdeu.

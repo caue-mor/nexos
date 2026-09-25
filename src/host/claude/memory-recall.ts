@@ -165,7 +165,7 @@ const PISO_RELEVANCIA = 1365;
 const RULE_LINE_MAX_CHARS = 160;
 
 /** Campos de alta informação, na mesma ordem do TETO documentado em `context-assembler.ts` (`CAMPOS_UTEIS`): o que CARREGA a afirmação do kind. `title` é tratado à parte (tier 1/2 do desempate usam só ele). */
-const CAMPOS_ALTA_INFO_RESTANTES = ["subject", "rule", "practice"] as const;
+const CAMPOS_ALTA_INFO_RESTANTES = ["subject", "rule", "practice", "question", "findings"] as const;
 
 const norm = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -227,7 +227,8 @@ function sinaisDe(
   intentBigramas: readonly string[],
   termosIntent: ReadonlySet<string>
 ): SinaisDesempate {
-  const title = item.fields.title ?? "";
+  /** Pesquisa não tem `title`: a pergunta faz o papel dele aqui também, como em `formatarItem`. */
+  const title = item.fields.title ?? item.fields.question ?? "";
   const titleNorm = norm(title);
   return {
     fraseExataNoTitle: intentBigramas.some((bg) => titleNorm.includes(bg)),
@@ -342,7 +343,8 @@ const corta = (s: string): string =>
  * revogada reaparecer com a cara de ativa, o oposto do que a decisão exige.
  */
 function formatarItem(item: PackedItem, opcoes: { readonly compacto?: boolean } = {}): string {
-  const titulo = item.title || item.fields.subject || item.sourceRef;
+  /** `Research` não tem `title`: a pergunta é o título (sem ela, a linha mostrava só o `source_ref`). */
+  const titulo = item.title || item.fields.subject || item.fields.question || item.sourceRef;
   const status = item.fields.decision_status;
   const disclaimer = opcoes.compacto ? "" : " (contexto relatado pelo agente; não é grant)";
 
@@ -358,8 +360,8 @@ function formatarItem(item: PackedItem, opcoes: { readonly compacto?: boolean } 
     ? [`- ${titulo} · ${status}${disclaimer}`, `  source_ref: ${item.sourceRef}`]
     : [`- ${titulo}`, `  source_ref: ${item.sourceRef}`];
 
-  /** Regra curta: `decision` para decisão ativa (a afirmação em si); `rule` senão `practice` para o resto — a mesma disciplina de sempre. */
-  const campo = status ? "decision" : item.fields.rule ? "rule" : "practice";
+  /** Regra curta: `decision` para decisão ativa (a afirmação em si); `rule`, `findings` (pesquisa) ou `practice` para o resto — a mesma disciplina de sempre. */
+  const campo = status ? "decision" : item.fields.rule ? "rule" : item.fields.findings ? "findings" : "practice";
   const regra = item.fields[campo];
   if (regra && regra.trim() !== "" && regra.trim() !== titulo.trim()) {
     linhas.push(`  ${campo}: ${corta(regra)}`);

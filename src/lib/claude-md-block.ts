@@ -26,6 +26,10 @@ const BEGIN_RE = /<!-- NEXOS:BEGIN managed(?: sha256=([0-9a-f]{64}))? -->/g;
 export const LEGACY_UNMARKED_SIGNATURES: readonly string[] = [
   "Este projeto tem uma Capsule canônica em `.nexos/`.",
   "# NexOS — Project Brain + Capability Layer",
+  // CLAUDE.md global de 1.0.0–6.3.2 — os três títulos das 25 versões do npm (medido 25/09).
+  "# NexOS v6.0 — Intelligent Software House (Kernel Edition)",
+  "# NexOS v7.0 — Intelligent Software House (Specialist Edition)",
+  "# NexOS v7.1 — Intelligent Software House (Harness Engineering Edition)",
 ];
 
 /**

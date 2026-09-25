@@ -33,7 +33,7 @@ import {
   type RawTextFile,
   type StackDetectorInput,
 } from "./stack-detector.js";
-import { scanProjectStructure, writeMapArtifacts, writeCoverageJson, gitStatusPorcelainOutsideNexos, type MapScanResult } from "./map-scan.js";
+import { scanProjectStructure, writeMapArtifacts, writeCoverageJson, gitStatusPorcelainOutsideNexos, isScanFact, type MapScanResult } from "./map-scan.js";
 import { computeSourceFingerprint, assignStableIds } from "./fingerprint.js";
 import { generateArchitectureMd } from "./architecture.js";
 import { resolveRouteSyntaxFramework } from "./routes.js";
@@ -380,7 +380,8 @@ export async function refreshProjectMapIncremental(
   }
 
   const previousMeta = await readProjectJsonMeta(rootPath);
-  const previous = previousMeta?.facts ?? [];
+  // Só o stack é incremental; auth/integração/dependência vêm inteiros do scan abaixo (nexos://gotcha/nexos-map-incremental-duplica-fatos-do-scan-a-cada-execucao).
+  const previous = (previousMeta?.facts ?? []).filter((f) => !isScanFact(f));
 
   /**
    * Sujeira fora do HEAD não tem como ser mapeada por `git diff HEAD-based`

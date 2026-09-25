@@ -16,6 +16,7 @@ import { scanProjectStructure } from "../src/lib/map/map-scan.js";
 import { readMapSummary } from "../src/lib/map/hot-brief.js";
 import { init } from "../src/commands/init.js";
 import { refreshProjectMapIncremental } from "../src/lib/map/project-map.js";
+import type { MapFact } from "../src/lib/map/stack-detector.js";
 import { stripJsonComments, parseTsconfigAliases, candidatesForAlias } from "../src/lib/map/tsconfig-resolve.js";
 
 const execFileAsync = promisify(execFile);
@@ -186,6 +187,40 @@ describe("R6 · `reprocessado` lista só paths realmente tocados, não todos os 
     const refresh = await refreshProjectMapIncremental(dir);
     expect(refresh.changed).toBe(true);
     expect(refresh.reprocessed).toContain("package.json");
+  });
+});
+
+describe("R8 · refresh incremental não herda fatos do scan — eles são recalculados inteiros a cada varredura", () => {
+  it("dois commits fora de probe de stack seguidos de refresh não repetem nenhum fato de auth/integração/dependência", async () => {
+    const dir = await tmpGitRepo("nexos-r8-");
+    await fs.outputFile(path.join(dir, "package.json"), JSON.stringify({ name: "app", dependencies: { zod: "^3.0.0" } }));
+    await fs.outputFile(
+      path.join(dir, "src/lib/auth-helper.ts"),
+      'import { z } from "zod";\nexport function verifyToken(req: { headers: { authorization?: string } }): string {\n  return z.string().parse(req.headers.authorization);\n}\n'
+    );
+    await fs.outputFile(
+      path.join(dir, "src/lib/mock-payments.ts"),
+      'export async function charge(): Promise<Response> {\n  return fetch("https://api.payments.example.com/v1/charge");\n}\nexport function refund(): never {\n  throw new Error("not implemented");\n}\n'
+    );
+    await fs.outputFile(path.join(dir, "src/lib/util.ts"), "export const x = 1;\n");
+    await commitAll(dir, "init");
+    await init({ cwd: dir, registerGlobally: false });
+    await commitAll(dir, "nexos init output");
+
+    for (const n of [2, 3, 4]) {
+      await fs.outputFile(path.join(dir, "src/lib/util.ts"), `export const x = ${n};\n`);
+      await commitAll(dir, `util ${n}`);
+      expect((await refreshProjectMapIncremental(dir)).changed).toBe(true);
+    }
+
+    const { facts } = (await fs.readJson(path.join(dir, ".nexos/map/project.json"))) as { facts: MapFact[] };
+    // a fixture precisa exercitar TODO produtor do scan — um produtor novo fora do filtro de project-map.ts duplicaria aqui.
+    const fields = new Set(facts.map((f) => f.provenance.field));
+    for (const field of ["candidate_module", "header_authorization_read", "mock_file", "partial_todo_throw", "endpoint_referenced", "import"]) {
+      expect(fields).toContain(field);
+    }
+    const keys = facts.map((f) => `${f.fact}|${f.value}|${f.provenance.file}|${f.provenance.field}`);
+    expect(keys.filter((k, i) => keys.indexOf(k) !== i)).toEqual([]);
   });
 });
 

@@ -354,6 +354,21 @@ async function resolveSpecifier(
 
 // ─── orquestração principal ─────────────────────────────────────────────────
 
+/** `provenance.field` que só `authFacts`/`integrationFacts`/`dependencyFacts` produzem — o stack-detector nunca usa nenhum. */
+const SCAN_FACT_FIELDS: ReadonlySet<string> = new Set([
+  "candidate_module",
+  "header_authorization_read",
+  "mock_file",
+  "partial_todo_throw",
+  "endpoint_referenced",
+  "import",
+]);
+
+/** Fato que o scan recalcula inteiro a cada varredura — herdá-lo do mapa anterior o duplica. */
+export function isScanFact(fact: MapFact): boolean {
+  return fact.provenance.field !== undefined && SCAN_FACT_FIELDS.has(fact.provenance.field);
+}
+
 export interface MapScanResult {
   readonly routes: readonly RouteFact[];
   readonly database: readonly DatabaseFact[];

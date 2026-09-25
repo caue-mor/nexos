@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.0.3 (2026-09-25) — mapa do projeto sem fatos repetidos
+
+### Fixed
+- **`nexos map` não repete mais fatos** — o refresh incremental (roda em `nexos map` e em
+  toda abertura de sessão em que o HEAD andou) reaproveitava o `project.json` anterior
+  inteiro e somava de novo os fatos de auth, integração e dependência que a varredura
+  recalcula: cada execução acrescentava uma cópia de cada um. Medido neste repo: 253 → 445
+  fatos em 8 execuções, sempre 41 distintos. Agora só os fatos de stack são reaproveitados;
+  um mapa já inflado volta ao tamanho certo na próxima atualização (445 → 41 aqui).
+
 ## 7.0.2 (2026-09-24) — pacote sem comentários internos, doctor mais rápido
 
 ### Security

@@ -1,6 +1,6 @@
 {
   "name": "nexos-cli",
-  "version": "7.0.2",
+  "version": "7.0.3",
   "description": "NexOS — Project Intelligence OS for Claude Code. Durable project memory: state, decisions, checkpoints, evidence. Install once, use everywhere.",
   "repository": {
     "type": "git",

@@ -4,6 +4,8 @@ description: PostgreSQL database specialist for query optimization, schema desig
 tools: [Read, Grep, Glob, Bash]
 model: sonnet
 effort: medium
+skills:
+  - development--postgres-best-practices
 ---
 
 

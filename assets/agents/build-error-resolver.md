@@ -137,10 +137,10 @@ npx eslint . --fix
 
 ## When NOT to Use
 
-- Code needs refactoring → use `refactor-cleaner`
-- Architecture changes needed → use `architect`
-- New features required → use `planner`
-- Tests failing → use `tdd-guide`
+- Code needs refactoring → out of scope: report it, do not refactor
+- Architecture changes needed → use `nexos-architect`
+- New features required → use `nexos-planner`
+- Tests failing → out of scope: report the failing test, do not rewrite it
 - Security issues → use `security-reviewer`
 
 ---

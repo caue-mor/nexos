@@ -1,5 +1,26 @@
 # Changelog
 
+## 7.0.7 (2026-09-26) — resumo de início que não sai vazio, revisores com conhecimento
+
+### Fixed
+- **resumo de início de sessão saía vazio** — `nexos claude-session-start` terminava com exit 0 e
+  nenhum byte em aberturas seguidas, e a sessão abria sem identidade, estado nem decisões. O
+  prazo interno não segurava o processo: quando uma leitura ficava esperando, o Node encerrava
+  antes do prazo vencer. Agora o prazo segura o processo, e toda abertura entrega conteúdo
+  (medido: 5 de 5, antes 1 de 3). Limite conhecido: em Store grande o resumo ainda sai parcial.
+- **regra de ferramentas contraditória** — o bloco do `CLAUDE.md` dizia "nunca grep" e a regra
+  `tool-usage.md` mandava usar grep quando falta a ferramenta dedicada. A regra caiu de 176 para
+  13 linhas e o bloco aponta para ela.
+
+### Changed
+- **revisores sobem com a skill da própria área** — `typescript-reviewer`, `react-reviewer`,
+  `database-reviewer`, `security-reviewer` e `nexos-verifier` pré-carregam a skill
+  correspondente (campo `skills` do agente). Antes nenhuma skill de conhecimento chegava aos
+  subagentes.
+- **três especialistas em quarentena** — `performance-optimizer`, `refactor-cleaner` e
+  `tdd-guide` saem da instalação (nenhum fluxo os chamava; 0 uso em 30 dias). Ficam em
+  `assets/quarantine/` com instrução de restauração; o install remove a cópia com backup.
+
 ## 7.0.6 (2026-09-25) — home com espaço e effort por agente
 
 ### Fixed

@@ -54,13 +54,13 @@ herda as ferramentas da sessão — não há allowlist própria nem papel exclus
 para operações remotas; a separação builder/verifier é de contexto e
 responsabilidade, não de permissão.
 
-### Especialistas (12) — seleção do host, não do registry
+### Especialistas (9) — chamados por rota, não por descrição
 
 Os 5 acima são PAPÉIS: delegam, verificam, têm matriz de tier. Além deles o
-pacote instala 12 especialistas por tecnologia. MEDIDO 23/09: escolhidos só por
-`description`, tiveram 0 chamadas em 30 dias. Os revisores agora são disparados
-pelo `nexos-verifier` em toda entrega de código (tabela arquivo → revisor na
-seção 3b dele); os demais seguem por descrição:
+pacote instala 9 especialistas por tecnologia, cada um com uma rota que o chama:
+o `nexos-verifier` dispara os revisores em toda entrega de código (seção 3b
+dele) e o `nexos-deliver` manda build quebrado aos resolvedores. Os revisores
+já sobem com a skill da própria área pré-carregada (`skills:` no frontmatter).
 
 | Frente | Agentes |
 |---|---|
@@ -68,14 +68,13 @@ seção 3b dele); os demais seguem por descrição:
 | React/Next | `react-reviewer`, `react-build-resolver`, `a11y-architect` |
 | Python | `python-reviewer`, `fastapi-reviewer` |
 | Dados | `database-reviewer` |
-| Qualidade | `security-reviewer`, `performance-optimizer` |
-| Teste | `tdd-guide` |
-| Manutenção | `refactor-cleaner` |
+| Segurança | `security-reviewer` |
 
-Portados de `affaan-m/ECC` (MIT) — ver `THIRD_PARTY_NOTICES.md`. Todos leem e
-rodam; só `refactor-cleaner`, `build-error-resolver` e `performance-optimizer`
-escrevem. `refactor-cleaner` APAGA código: só quando a tarefa for
-explicitamente limpeza. Codemap não tem agente: `nexos map` deriva.
+Portados de `affaan-m/ECC` (MIT) — ver `THIRD_PARTY_NOTICES.md`. Os revisores
+leem e rodam; só os dois resolvedores de build escrevem. Em quarentena, fora da
+instalação por não terem rota nem uso em 30 dias: `performance-optimizer`,
+`refactor-cleaner`, `tdd-guide` (`assets/quarantine/`). Codemap não tem agente:
+`nexos map` deriva.
 
 Revisão de PR, comentário que mente, cobertura de teste, falha engolida e design
 de tipo **não** têm agente aqui de propósito: são o plugin oficial
@@ -150,11 +149,5 @@ Ao usar uma, mencione o nome no seu raciocínio — biasa o modelo a ativá-la.
 
 ## Ferramentas
 
-| Tarefa | Use | Nunca |
-|---|---|---|
-| Ler arquivo | `Read` | `cat`, `head`, `tail` |
-| Editar arquivo | `Edit` | `sed`, `awk` |
-| Criar arquivo | `Write` | `echo >` |
-| Buscar arquivo | `Glob` | `find` |
-| Buscar conteúdo | `Grep` | `grep`, `rg` |
-| Git/npm | `Bash` | — |
+Ferramenta dedicada quando a sessão tem; sem ela, Bash em modo leitura
+(`rules/tool-usage.md`). Preferência, nunca proibição.

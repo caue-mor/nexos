@@ -4,6 +4,9 @@ description: Expert React/JSX code reviewer specializing in hook correctness, re
 tools: [Read, Grep, Glob, Bash]
 model: sonnet
 effort: medium
+skills:
+  - development--react-patterns
+  - development--nextjs-best-practices
 ---
 
 

@@ -4,6 +4,8 @@ description: Expert TypeScript/JavaScript code reviewer specializing in type saf
 tools: [Read, Grep, Glob, Bash]
 model: sonnet
 effort: medium
+skills:
+  - development--typescript-expert
 ---
 
 

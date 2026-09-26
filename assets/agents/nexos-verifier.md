@@ -8,6 +8,8 @@ description: |
   nunca modifica nada, nunca implementa. Cobre também a revisão de qualidade de
   código (lint/typecheck/test/build), não só a verificação de contrato.
 model: sonnet
+skills:
+  - development--verification-before-completion
 memory: project
 ---
 

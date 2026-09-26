@@ -77,18 +77,19 @@ export type DeadlineOutcome<T> =
  * abortável, e cancelar de verdade exigiria threadar `AbortController` por
  * `context-assembler.ts`/`capsule/reader.ts` inteiros, fora do teto desta
  * fatia. O `.catch` mudo existe só para que uma rejeição tardia do loser não
- * vire `unhandledRejection` num processo que já respondeu. `unref()` no timer
- * para não segurar o processo por conta PRÓPRIA — quem prende o processo é o
- * loser, e é isso que `claudeSessionStart` (`host/claude/session-start.ts`)
- * força a soltar chamando `process.exit()` assim que o stdout termina de ser
- * escrito, nunca este racer.
+ * vire `unhandledRejection` num processo que já respondeu. O timer NÃO leva
+ * `unref()`: MEDIDO 26/09, com ele o hook saía com exit 0 e 0 bytes — o
+ * perdedor esperava uma promise sem handle ativo, o loop esvaziava e o Node
+ * encerrava antes do prazo. O `finally` limpa o timer assim que a corrida
+ * termina, e `claudeSessionStart` (`host/claude/session-start.ts`) chama
+ * `process.exit()` depois de escrever, então o timer nunca prende o processo
+ * além do prazo.
  */
 export async function withDeadline<T>(work: Promise<T>, deadlineMs: number): Promise<DeadlineOutcome<T>> {
   work.catch(() => undefined);
   let timer: NodeJS.Timeout | undefined;
   const deadline = new Promise<DeadlineOutcome<T>>((resolve) => {
     timer = setTimeout(() => resolve({ outcome: "timeout" }), deadlineMs);
-    timer.unref();
   });
   try {
     return await Promise.race([

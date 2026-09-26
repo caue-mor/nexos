@@ -6,27 +6,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-secret-shield.cjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-secret-shield.cjs\""
           },
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-user-prompt-submit.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-user-prompt-submit.sh\""
           },
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-memory-recall.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-memory-recall.sh\""
           },
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-context-warn.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-context-warn.sh\""
           },
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-docs-route.mjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-docs-route.mjs\""
           },
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-team-route.mjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-team-route.mjs\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-context-warn.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-context-warn.sh\""
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-docs-route.mjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-docs-route.mjs\""
           }
         ]
       },
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-mcp-sql-write-warn.mjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-mcp-sql-write-warn.mjs\""
           }
         ]
       }
@@ -66,15 +66,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-memory-capture.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-memory-capture.sh\""
           },
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-session-close.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-session-close.sh\""
           },
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-absence-claim.mjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-absence-claim.mjs\""
           }
         ]
       }
@@ -85,7 +85,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $HOME/.claude/hooks/nexos-absence-claim.mjs"
+            "command": "node \"$HOME/.claude/hooks/nexos-absence-claim.mjs\""
           }
         ]
       }
@@ -108,7 +108,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-session-close.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-session-close.sh\""
           }
         ]
       }
@@ -118,7 +118,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $HOME/.claude/hooks/nexos-session-close.sh"
+            "command": "bash \"$HOME/.claude/hooks/nexos-session-close.sh\""
           }
         ]
       }

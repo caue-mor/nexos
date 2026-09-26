@@ -1,5 +1,22 @@
 # Changelog
 
+## 7.0.6 (2026-09-25) — home com espaço e effort por agente
+
+### Fixed
+- **hooks com espaço no caminho do home** — `C:\Users\João Silva` ou `/Users/João Silva`
+  quebravam todos os hooks: o comando era gravado sem aspas e o shell partia o caminho
+  (`Cannot find module '/Users/João'`). Os caminhos agora vão entre aspas duplas, com
+  escape de `\`, `"`, `$` e crase; testado com espaço, apóstrofo e esses caracteres. Um
+  `settings.json` já instalado na forma antiga é reconhecido e atualizado sem duplicar hook.
+  Limite conhecido: no Windows sem Git Bash, onde o hook roda no PowerShell, um home com
+  `$` ou crase no nome ainda pode quebrar.
+
+### Changed
+- **esforço por agente** — os revisores por linguagem, `a11y-architect` e os dois
+  resolvedores de build rodam em `effort: medium`; `nexos-architect` em `xhigh`; os demais
+  seguem o nível da sua sessão. Segue o guia oficial do Opus 5.5: começar em `medium` e
+  subir só com ganho medido.
+
 ## 7.0.5 (2026-09-25) — install no Windows e upgrade limpo a partir da 6.x
 
 Reproduzido a partir de um relato da comunidade (Windows, 6.3.1 → 7.0.3), instalando a

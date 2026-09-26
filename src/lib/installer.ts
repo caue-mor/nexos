@@ -842,8 +842,13 @@ export function projectStatusLineSettings(
   };
 }
 
+/** Escape para DENTRO de aspas duplas de shell POSIX — sem as aspas em volta. */
+function escapeForDoubleQuotes(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`");
+}
+
 function quoteForShellCommand(value: string): string {
-  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "\\$").replace(/`/g, "\\`")}"`;
+  return `"${escapeForDoubleQuotes(value)}"`;
 }
 
 /**
@@ -886,17 +891,20 @@ function buildStatusLineCommand(): string {
 }
 
 /**
- * `$HOME` do asset vira texto DENTRO de string JSON e, depois, argumento sem
- * aspas num comando de hook — que roda em Git Bash no Windows, ou PowerShell
- * sem ele (code.claude.com/docs/en/hooks.md). MEDIDO 25/09 (relato da
- * comunidade, Windows, 7.0.3): `C:\Users\...` cru virava o escape JSON
- * inválido `\U` e o install abortava no parse. Barra normal serve a node, Git
- * Bash e PowerShell; o escape JSON cobre aspas; o replacer em função impede
- * `$&`/`$$` do home de virar padrão de substituição.
- * ponytail: home com espaço ainda quebra o comando sem aspas em qualquer plataforma; aspas no asset quando alguém medir esse caso.
+ * `$HOME` do asset vira texto DENTRO de string JSON e, depois, argumento entre
+ * aspas duplas num comando de hook (`node "$HOME/.claude/hooks/x"`) — que
+ * roda em `sh -c` no macOS/Linux, Git Bash no Windows, ou PowerShell sem ele
+ * (code.claude.com/docs/en/hooks.md). MEDIDO 25/09 (relato da comunidade,
+ * Windows, 7.0.3): `C:\Users\...` cru virava o escape JSON inválido `\U` e o
+ * install abortava no parse. Barra normal serve a node, Git Bash e
+ * PowerShell. MEDIDO 25/09: sem aspas, home com espaço partia o caminho
+ * (`Cannot find module '/tmp/Joao'`) — as aspas moram no asset, e aqui o home
+ * é escapado para dentro delas (`\ " $ \``, regra POSIX) antes do escape
+ * JSON. O replacer em função impede `$&`/`$$` do home de virar padrão de
+ * substituição. Contrato: todo `$HOME` do asset está entre aspas duplas.
  */
 export function expandirHomeNoJson(raw: string, homeDir: string, sep: string = path.sep): string {
-  const home = JSON.stringify(homeDir.split(sep).join("/")).slice(1, -1);
+  const home = JSON.stringify(escapeForDoubleQuotes(homeDir.split(sep).join("/"))).slice(1, -1);
   return raw.replace(/\$HOME/g, () => home);
 }
 

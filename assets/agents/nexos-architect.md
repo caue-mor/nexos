@@ -10,6 +10,7 @@ description: |
   Read-only sobre código: PROJETA e DOCUMENTA decisões, nunca implementa.
   Para escrever o código da decisão, o executor é nexos-dev.
 model: opus
+effort: xhigh
 memory: project
 
 ---

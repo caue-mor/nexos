@@ -33,10 +33,34 @@ describe("expandirHomeNoJson", () => {
   });
 
   it("home com padrão de replace ($&) e aspas sai literal", () => {
-    expect(JSON.parse(expandirHomeNoJson('{"c":"node $HOME/x"}', '/Users/a$&"b', "/"))).toEqual({
-      c: 'node /Users/a$&"b/x',
+    expect(JSON.parse(expandirHomeNoJson('{"c":"node \\"$HOME/x\\""}', '/Users/a$&"b', "/"))).toEqual({
+      c: 'node "/Users/a\\$&\\"b/x"',
     });
   });
+
+  // MEDIDO: `node /tmp/Joao Silva/.claude/hooks/x.cjs` falha com "Cannot find
+  // module '/tmp/Joao'" — o shell divide o caminho sem aspas.
+  it.skipIf(process.platform === "win32").each(["João Silva", 'a$b `c` "d"'])(
+    "home %j: todo comando de hook do asset roda via sh -c e acha o script",
+    (nome) => {
+      const home = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "nexos-home-")), nome);
+      const s = JSON.parse(expandirHomeNoJson(raw, home, "/")) as {
+        hooks: Record<string, { hooks: { command: string }[] }[]>;
+      };
+      const comandos = Object.values(s.hooks)
+        .flat()
+        .flatMap((g) => g.hooks.map((h) => h.command))
+        .filter((c) => c.includes(".claude/hooks/"));
+      expect(comandos.length).toBeGreaterThan(0);
+      for (const c of comandos) {
+        const script = path.join(home, ".claude", "hooks", path.basename(c.replace(/"$/, "")));
+        fs.outputFileSync(script, script.endsWith(".sh") ? "echo ok\n" : 'console.log("ok");\n');
+        const r = spawnSync("sh", ["-c", c], { encoding: "utf-8", input: "" });
+        expect(`${r.stdout}${r.stderr}`, c).toBe("ok\n");
+      }
+      fs.removeSync(path.dirname(home));
+    }
+  );
 });
 
 // ─── projectHooksSettings — projeção pura de hooks (P1.3i) ─────────────────
@@ -157,6 +181,25 @@ describe("projectHooksSettings — legado 6.3.2 real (npm latest medido 08/08)",
     };
     const projected = projectHooksSettings(existing, {});
     expect((projected.hooks as Record<string, unknown>).PreToolUse).toBeUndefined();
+  });
+
+  it("forma sem aspas (<= 7.0.5) é reconhecida como NexOS: reinstalar com aspas troca, nunca duplica", () => {
+    const raw = fs.readFileSync(path.join(__dirname, "..", "assets", "settings.json"), "utf-8");
+    const home = "/Users/João Silva";
+    const novo = (JSON.parse(expandirHomeNoJson(raw, home, "/")) as { hooks: Record<string, unknown> }).hooks;
+    const antigo = JSON.parse(raw.replace(/\\"\$HOME([^"\\]*)\\"/g, `${home}$1`)) as { hooks: Record<string, unknown> };
+    const alheio = { hooks: [{ type: "command", command: "node /other/tool.js" }] };
+    const existing = { hooks: { ...antigo.hooks, Stop: [...(antigo.hooks.Stop as unknown[]), alheio] } };
+
+    const comandos = (h: Record<string, unknown>) =>
+      Object.values(h)
+        .flatMap((gs) => gs as Array<{ hooks: Array<{ command: string }> }>)
+        .flatMap((g) => g.hooks.map((x) => x.command));
+    expect(comandos(antigo.hooks).some((c) => c.includes(`node ${home}/.claude/hooks/`))).toBe(true);
+
+    const projected = projectHooksSettings(existing, novo).hooks as Record<string, unknown>;
+    expect(comandos(projected).sort()).toEqual([...comandos(novo), "node /other/tool.js"].sort());
+    expect(projectHooksSettings({ hooks: projected }, novo).hooks).toEqual(projected);
   });
 
   it("fresh install (existing = null) nunca introduz um handler NexOS-owned que não veio do asset atual", () => {

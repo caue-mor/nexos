@@ -64,9 +64,9 @@ function flatten(settings: Record<string, unknown>): Array<{ event: string; comm
   return out;
 }
 
-/** `bash $HOME/.claude/hooks/X.sh ...` -> `X.sh`; outros comandos -> null. */
+/** `bash "$HOME/.claude/hooks/X.sh" ...` -> `X.sh`; outros comandos -> null. */
 function scriptBasename(command: string): string | null {
-  const m = command.match(/\$HOME\/\.claude\/hooks\/(\S+)/);
+  const m = command.match(/\$HOME\/\.claude\/hooks\/([^\s"]+)/);
   return m ? m[1] : null;
 }
 

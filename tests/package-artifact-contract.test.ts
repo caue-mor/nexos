@@ -166,7 +166,7 @@ describe("package artifact contract â€” o TARBALL publicado nunca carrega dist Ã
     for (const groups of Object.values(hooks)) {
       for (const group of groups ?? []) {
         for (const handler of group.hooks ?? []) {
-          const match = handler.command.match(/\$HOME\/\.claude\/hooks\/(\S+)/);
+          const match = handler.command.match(/\$HOME\/\.claude\/hooks\/([^\s"]+)/);
           if (match) scripts.add(match[1]);
         }
       }

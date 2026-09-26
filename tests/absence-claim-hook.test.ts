@@ -103,7 +103,7 @@ describe("nexos-absence-claim — cobra rotas de quem afirma ausência", () => {
     };
     for (const ev of ["Stop", "SubagentStop"]) {
       const cmds = (s.hooks[ev] ?? []).flatMap((g) => g.hooks.map((h) => h.command));
-      expect(cmds, ev).toContain("node $HOME/.claude/hooks/nexos-absence-claim.mjs");
+      expect(cmds, ev).toContain('node "$HOME/.claude/hooks/nexos-absence-claim.mjs"');
     }
   });
 });
